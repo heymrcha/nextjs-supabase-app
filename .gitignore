@@ -40,3 +40,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AI 에이전트 도구 설정 (로컬 전용)
+.agents/
+.claude/
+shrimp_data/
+skills-lock.json
