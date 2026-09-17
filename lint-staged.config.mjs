@@ -1,4 +1,6 @@
-export default {
+const lintStagedConfig = {
   "*.{ts,tsx,js,mjs}": ["eslint --fix", "prettier --write"],
   "*.{json,md,css,yml,yaml}": "prettier --write",
 };
+
+export default lintStagedConfig;
