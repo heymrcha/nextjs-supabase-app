@@ -1,0 +1,12 @@
+# 빌드 산출물·기계 생성 파일
+.next/
+out/
+build/
+node_modules/
+package-lock.json
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# 로컬 전용 에이전트 데이터
+shrimp_data/
+skills-lock.json
