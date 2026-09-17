@@ -11,7 +11,7 @@ Supabase 공식 `with-supabase` 스타터(Create Next App)에서 출발한 **연
 ```bash
 npm run dev          # 개발 서버 (Turbopack 기본, Next.js 16)
 npm run build        # 프로덕션 빌드
-npm run check        # lint + typecheck + format:check 를 한 번에 — 코드 수정 후 이것부터
+npm run check        # lint + typecheck + format:check 를 한 번에 (check-all 도 같음)
 npm run lint         # eslint . — flat config, eslint-config-next 16 + eslint-config-prettier
 npm run typecheck    # tsc --noEmit
 npm run format       # prettier --write . (format:check 는 검사만)
@@ -74,3 +74,12 @@ shadcn/ui `new-york` 스타일, `components/ui/`에 필요한 것만 추가(`npx
 ## 커밋 규칙
 
 `/git:commit` 커맨드가 정의한 형식을 따릅니다: `<이모지> <타입>: <한국어 설명>` (예: `📝 docs: 가이드 문서를 설치된 스택 버전에 맞게 갱신`). 이 커맨드는 **Claude 서명(Co-Authored-By)을 붙이지 않도록** 명시하고 있습니다.
+
+## 작업 완료 체크리스트
+
+코드를 수정한 작업은 아래 두 명령이 모두 통과해야 완료로 보고합니다.
+
+```bash
+npm run check-all   # 모든 검사 통과 확인 (lint + typecheck + format:check, `check`의 별칭)
+npm run build       # 빌드 성공 확인
+```
