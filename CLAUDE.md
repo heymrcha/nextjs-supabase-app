@@ -23,11 +23,11 @@ npx tsc --noEmit # 타입 검사 (별도 스크립트 없음)
 
 ### Supabase 클라이언트 3종 (`lib/supabase/`)
 
-| 파일 | 어디서 | 특징 |
-|---|---|---|
-| `client.ts` | `"use client"` 컴포넌트 | `createBrowserClient`. 폼 제출(로그인·가입·비밀번호)이 전부 여기서 직접 `supabase.auth.*`를 호출하고 `router.push`로 이동 — Server Action을 쓰지 않음 |
+| 파일        | 어디서                          | 특징                                                                                                                                                                                                                                     |
+| ----------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client.ts` | `"use client"` 컴포넌트         | `createBrowserClient`. 폼 제출(로그인·가입·비밀번호)이 전부 여기서 직접 `supabase.auth.*`를 호출하고 `router.push`로 이동 — Server Action을 쓰지 않음                                                                                    |
 | `server.ts` | Server Component, Route Handler | `createServerClient` + `next/headers`의 `cookies()`. **매 호출마다 새로 생성**(전역 캐시 금지, Fluid compute 주석 참고). Server Component에서는 쿠키 쓰기가 실패하므로 `setAll`이 try/catch로 삼킴 — 세션 갱신은 proxy가 담당한다는 전제 |
-| `proxy.ts` | 루트 `proxy.ts`에서만 | `updateSession()`. 요청/응답 양쪽 쿠키를 동기화하고 `getClaims()`로 세션을 갱신한 뒤 **응답 객체를 그대로 반환해야 함**(새 `NextResponse`를 만들면 쿠키가 유실됨) |
+| `proxy.ts`  | 루트 `proxy.ts`에서만           | `updateSession()`. 요청/응답 양쪽 쿠키를 동기화하고 `getClaims()`로 세션을 갱신한 뒤 **응답 객체를 그대로 반환해야 함**(새 `NextResponse`를 만들면 쿠키가 유실됨)                                                                        |
 
 세션 확인은 어디서든 `getUser()`/`getSession()`이 아니라 **`supabase.auth.getClaims()`** 를 씁니다. 스타터가 그렇게 잡혀 있고 `@supabase/ssr` 현행 권장 방식입니다.
 

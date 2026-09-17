@@ -147,22 +147,22 @@ async function SlowChart() {
 ### 🔄 New: after() API 활용
 
 ```typescript
-import { after } from 'next/server'
+import { after } from "next/server";
 
 export async function POST(request: Request) {
-  const body = await request.json()
+  const body = await request.json();
 
   // 즉시 응답 반환
-  const result = await processUserData(body)
+  const result = await processUserData(body);
 
   // 🔄 비블로킹 작업은 after()로 처리
   after(async () => {
-    await sendAnalytics(result)
-    await updateCache(result.id)
-    await sendNotification(result.userId)
-  })
+    await sendAnalytics(result);
+    await updateCache(result.id);
+    await sendNotification(result.userId);
+  });
 
-  return Response.json({ success: true, id: result.id })
+  return Response.json({ success: true, id: result.id });
 }
 ```
 
@@ -175,22 +175,22 @@ export async function getProductData(id: string) {
     // fetch 캐시 옵션
     next: {
       revalidate: 3600, // 1시간 캐시
-      tags: [`product-${id}`, 'products'], // 태그 기반 무효화
+      tags: [`product-${id}`, "products"], // 태그 기반 무효화
     },
-  })
+  });
 
-  return data.json()
+  return data.json();
 }
 
 // 캐시 무효화
-import { revalidateTag } from 'next/cache'
+import { revalidateTag } from "next/cache";
 
 export async function updateProduct(id: string, data: ProductData) {
-  await updateDatabase(id, data)
+  await updateDatabase(id, data);
 
   // 관련 캐시 무효화
-  revalidateTag(`product-${id}`)
-  revalidateTag('products')
+  revalidateTag(`product-${id}`);
+  revalidateTag("products");
 }
 ```
 
@@ -200,26 +200,26 @@ Next.js 16부터 Turbopack이 `dev`와 `build` 모두의 기본 번들러입니�
 
 ```typescript
 // next.config.ts
-import type { NextConfig } from 'next'
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   typedRoutes: true,
   // ✅ 최상위 turbopack 키 (experimental.turbo 아님)
   turbopack: {
     rules: {
-      '*.svg': {
-        loaders: ['@svgr/webpack'],
-        as: '*.js',
+      "*.svg": {
+        loaders: ["@svgr/webpack"],
+        as: "*.js",
       },
     },
   },
   experimental: {
     // 🔄 패키지 import 최적화
-    optimizePackageImports: ['lucide-react', 'date-fns', 'lodash-es'],
+    optimizePackageImports: ["lucide-react", "date-fns", "lodash-es"],
   },
-}
+};
 
-export default nextConfig
+export default nextConfig;
 ```
 
 ## ⚠️ Breaking Changes 대응
@@ -272,21 +272,21 @@ Next.js 16부터 `middleware.ts`는 `proxy.ts`로 이름이 바뀌었습니다. 
 
 ```typescript
 // proxy.ts
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from "next/server";
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
-}
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+};
 
 // 🔄 export 이름도 middleware → proxy
 export function proxy(request: NextRequest) {
-  const token = request.cookies.get('auth-token')?.value
+  const token = request.cookies.get("auth-token")?.value;
 
   if (!token) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  return NextResponse.next()
+  return NextResponse.next();
 }
 ```
 
@@ -300,23 +300,23 @@ npx @next/codemod@canary middleware-to-proxy .
 
 ```typescript
 // app/api/admin/route.ts
-import { unauthorized, forbidden } from 'next/server'
+import { unauthorized, forbidden } from "next/server";
 
 export async function GET(request: Request) {
-  const session = await getSession(request)
+  const session = await getSession(request);
 
   // 🔄 새로운 unauthorized 함수
   if (!session) {
-    return unauthorized()
+    return unauthorized();
   }
 
   // 🔄 새로운 forbidden 함수
   if (!session.user.isAdmin) {
-    return forbidden()
+    return forbidden();
   }
 
-  const data = await getAdminData()
-  return Response.json(data)
+  const data = await getAdminData();
+  return Response.json(data);
 }
 ```
 

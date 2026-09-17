@@ -16,7 +16,11 @@ import { useSyncExternalStore } from "react";
 // 서버 렌더와 첫 클라이언트 렌더를 일치시키기 위한 마운트 가드
 const subscribeNoop = () => () => {};
 const useMounted = () =>
-  useSyncExternalStore(subscribeNoop, () => true, () => false);
+  useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
 
 const ThemeSwitcher = () => {
   const mounted = useMounted();
