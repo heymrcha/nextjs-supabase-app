@@ -10,16 +10,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Laptop, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+// 서버에서는 false, 클라이언트 하이드레이션 후에는 true — 테마는 클라이언트에서만 알 수 있어
+// 서버 렌더와 첫 클라이언트 렌더를 일치시키기 위한 마운트 가드
+const subscribeNoop = () => () => {};
+const useMounted = () =>
+  useSyncExternalStore(subscribeNoop, () => true, () => false);
 
 const ThemeSwitcher = () => {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const { theme, setTheme } = useTheme();
-
-  // useEffect only runs on the client, so now we can safely show the UI
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   if (!mounted) {
     return null;
