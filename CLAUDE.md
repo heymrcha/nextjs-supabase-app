@@ -69,7 +69,7 @@ shadcn/ui `new-york` 스타일, `components/ui/`에 필요한 것만 추가(`npx
 - `forms-react-hook-form.md`가 다루는 `react-hook-form`·`zod`·`@hookform/resolvers`는 **아직 설치되어 있지 않습니다.** 폼 작업을 시작할 때 설치하세요.
 - `project-structure.md`는 목표 구조를 설명하며 현재 트리와 일치하지 않는 부분이 있습니다(예: `hooks/`, `types/` 디렉터리 없음).
 
-`.claude/*`, `.agents/`, `shrimp_data/`는 `.gitignore`에 들어 있어 **서브에이전트·커맨드·스킬 수정은 커밋되지 않습니다.** 이 머신에만 존재한다는 점을 전제로 안내하세요. 예외는 `.claude/settings.json`(`!.claude/settings.json`으로 추적)으로, 프로젝트 공유용 권한·훅 설정입니다 — `.env*` 읽기, `rm -rf`, `git push --force`, `git reset --hard` 등을 거부하고 편집 직후 Prettier를 돌립니다. 개인 설정은 `settings.local.json`에 두세요. `.mcp.json`(Supabase MCP, 프로젝트 ref만 포함)도 커밋 대상입니다.
+`.claude/*`, `.agents/`, `shrimp_data/`는 `.gitignore`에 들어 있지만 **`.claude/settings.json`, `.claude/agents/`, `.claude/commands/`는 예외로 추적**되어 프로젝트와 함께 커밋됩니다. 서브에이전트·커맨드를 수정하면 커밋 대상이므로 개인 설정이나 비밀값을 넣지 마세요. `.claude/skills/`, `settings.local.json`은 여전히 로컬 전용입니다. `settings.json`은 프로젝트 공유용 권한·훅 설정입니다 — `.env*` 읽기, `rm -rf`, `git push --force`, `git reset --hard` 등을 거부하고 편집 직후 Prettier를 돌립니다. 개인 설정은 `settings.local.json`에 두세요. `.mcp.json`(Supabase MCP, 프로젝트 ref만 포함)도 커밋 대상입니다.
 
 ## 커밋 규칙
 

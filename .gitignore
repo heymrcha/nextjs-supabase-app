@@ -44,7 +44,9 @@ next-env.d.ts
 # AI 에이전트 도구 설정 (로컬 전용)
 .agents/
 .claude/*
-# 프로젝트 공유용 권한·훅 설정만 예외 (settings.local.json 등은 계속 로컬 전용)
+# 프로젝트 공유용 설정·서브에이전트·커맨드만 예외 (settings.local.json, skills 등은 계속 로컬 전용)
 !.claude/settings.json
+!.claude/agents/
+!.claude/commands/
 shrimp_data/
 skills-lock.json
