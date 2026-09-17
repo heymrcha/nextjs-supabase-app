@@ -9,13 +9,26 @@ Supabase 공식 `with-supabase` 스타터(Create Next App)에서 출발한 **연
 ## 명령어
 
 ```bash
-npm run dev      # 개발 서버 (Turbopack 기본, Next.js 16)
-npm run build    # 프로덕션 빌드
-npm run lint     # eslint . — flat config, eslint-config-next 16 직접 import
-npx tsc --noEmit # 타입 검사 (별도 스크립트 없음)
+npm run dev          # 개발 서버 (Turbopack 기본, Next.js 16)
+npm run build        # 프로덕션 빌드
+npm run check        # lint + typecheck + format:check 를 한 번에 — 코드 수정 후 이것부터
+npm run lint         # eslint . — flat config, eslint-config-next 16 + eslint-config-prettier
+npm run typecheck    # tsc --noEmit
+npm run format       # prettier --write . (format:check 는 검사만)
 ```
 
-테스트 스위트는 없습니다. 검증은 `lint` + `tsc` + `build`, 그리고 브라우저 확인입니다.
+테스트 스위트는 없습니다. 검증은 `check` + `build`, 그리고 브라우저 확인입니다.
+
+### 자동 검사 지점
+
+| 시점                               | 실행 내용                                                                | 정의 위치                                      |
+| ---------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------- |
+| 파일 Edit/Write 직후 (Claude Code) | 해당 파일에 `prettier --write`                                           | `.claude/settings.json` `hooks.PostToolUse`    |
+| `git commit`                       | 스테이징된 파일에 `eslint --fix` + `prettier --write`                    | `.husky/pre-commit` → `lint-staged.config.mjs` |
+| `git push`                         | `typecheck` + `lint` 전체                                                | `.husky/pre-push`                              |
+| GitHub push/PR                     | `lint` → `typecheck` → `format:check` → `build` (더미 Supabase env 주입) | `.github/workflows/ci.yml`                     |
+
+pre-commit이 실패하면 커밋이 만들어지지 않습니다. `any` 사용, 미사용 변수 등이 걸리므로 우회(`--no-verify`)하지 말고 코드를 고치세요. Prettier 규칙은 `.prettierrc.json`(Tailwind 클래스 정렬 플러그인 포함, `cn`/`cva`/`clsx` 인자도 정렬)이고, 포맷 관련 ESLint 규칙은 `eslint-config-prettier`로 꺼져 있으므로 스타일 문제는 Prettier 쪽에서만 다룹니다.
 
 환경 변수는 `.env.local`에 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` 두 개입니다(`.env.example` 참고). 둘 중 하나라도 없으면 `lib/utils.ts`의 `hasEnvVars`가 falsy가 되어 **proxy의 인증 검사 자체가 건너뛰어지고** UI에는 `EnvVarWarning`이 뜹니다. "로그인 안 했는데 보호 페이지가 열린다"는 현상은 대부분 이것입니다.
 
@@ -56,7 +69,7 @@ shadcn/ui `new-york` 스타일, `components/ui/`에 필요한 것만 추가(`npx
 - `forms-react-hook-form.md`가 다루는 `react-hook-form`·`zod`·`@hookform/resolvers`는 **아직 설치되어 있지 않습니다.** 폼 작업을 시작할 때 설치하세요.
 - `project-structure.md`는 목표 구조를 설명하며 현재 트리와 일치하지 않는 부분이 있습니다(예: `hooks/`, `types/` 디렉터리 없음).
 
-`.claude/`, `.agents/`, `shrimp_data/`는 `.gitignore`에 들어 있어 **서브에이전트·커맨드·스킬 수정은 커밋되지 않습니다.** 이 머신에만 존재한다는 점을 전제로 안내하세요. 반면 `.mcp.json`(Supabase MCP, 프로젝트 ref만 포함)은 커밋 대상입니다.
+`.claude/*`, `.agents/`, `shrimp_data/`는 `.gitignore`에 들어 있어 **서브에이전트·커맨드·스킬 수정은 커밋되지 않습니다.** 이 머신에만 존재한다는 점을 전제로 안내하세요. 예외는 `.claude/settings.json`(`!.claude/settings.json`으로 추적)으로, 프로젝트 공유용 권한·훅 설정입니다 — `.env*` 읽기, `rm -rf`, `git push --force`, `git reset --hard` 등을 거부하고 편집 직후 Prettier를 돌립니다. 개인 설정은 `settings.local.json`에 두세요. `.mcp.json`(Supabase MCP, 프로젝트 ref만 포함)도 커밋 대상입니다.
 
 ## 커밋 규칙
 
