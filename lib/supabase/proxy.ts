@@ -52,6 +52,9 @@ export async function updateSession(request: NextRequest) {
     !user &&
     !request.nextUrl.pathname.startsWith("/login") &&
     !request.nextUrl.pathname.startsWith("/auth") &&
+    // 게스트는 가입하지 않으므로 공유 링크(/e/)와 게스트 쓰기 API는 인증 없이 열려야 한다
+    !request.nextUrl.pathname.startsWith("/e/") &&
+    !request.nextUrl.pathname.startsWith("/api/guest/") &&
     request.nextUrl.pathname !== "/instruments" &&
     !request.nextUrl.pathname.startsWith("/instruments/")
   ) {
