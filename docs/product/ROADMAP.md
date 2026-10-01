@@ -124,7 +124,7 @@ PRD 원문을 그대로 옮기면 동작하지 않는 지점이다. 각 작업 �
   - `status` 또는 `display_name`이 바뀔 때만 기록. `note`만 바뀐 경우는 기록하지 않는다(노이즈)
   - 이력 기록은 애플리케이션이 아니라 트리거가 담당한다 — RPC · 주최자 편집 · 관리 스크립트 어느 경로로 들어와도 빠지지 않게
   - 선행: T-105
-- [ ] **T-107 마이그레이션 `moim_guest_rate_limit`** — `api.guest_rsvp_calls(event_id, minute_bucket, call_count)` 카운터 테이블 + `guest_submit_rsvp` 안에서 `(event_id, date_trunc('minute', now()))` 기준 분당 상한 초과 시 `RATE_LIMITED`(`P0001`) 발생. 테이블은 `anon`에게 어떤 권한도 주지 않고 함수 내부에서만 갱신
+- [x] **T-107 마이그레이션 `moim_guest_rate_limit`** — **`private`.`guest_rsvp_calls(event_id, minute_bucket, call_count)`** 카운터 테이블(`api`가 아니다 — T-108에서 `api`가 노출 스키마가 되면 그 안의 테이블은 `/rest/v1/guest_rsvp_calls` 경로가 생긴다. 권한이 없어 막히지만 표면을 만들지 않는 편이 낫다) + `guest_submit_rsvp` 안에서 `(event_id, date_trunc('minute', now()))` 기준 분당 상한 초과 시 `RATE_LIMITED`(`P0001`) 발생. 테이블은 `anon`에게 어떤 권한도 주지 않고 함수 내부에서만 갱신
   - 선행: T-105
 - [ ] **T-108 PostgREST 노출 스키마에 `api` 추가 (프로젝트 설정 — 마이그레이션 아님)**
   - SQL로 해결되지 않는다. Supabase 대시보드 **Settings → API → Exposed schemas**에 `api`를 추가해야(또는 Management API의 `db_schema` 설정 갱신) `/rest/v1/rpc/guest_get_event`에 도달한다. 누락 시 `grant`가 모두 맞아도 `PGRST106` / 404가 난다
@@ -186,8 +186,14 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
 
 | 12 | `guest_withdraw_rsvp`는 철회만 하면 된다 | 철회할 응답이 없을 때도 `EVENT_UNAVAILABLE`로 떨어뜨린다. 다른 코드를 주면 "이 토큰에 내 응답이 있는가"가 오라클이 되어 이벤트 상태를 추측할 수 있다 |
 
+| 13 | 카운터 테이블은 `api.guest_rsvp_calls` | **`private.guest_rsvp_calls`로 옮겼다.** T-108 이후 `api`의 테이블은 REST 경로가 생긴다. 내부 장부는 노출 스키마에 두지 않는다 |
+| 14 | 이력 트리거 함수는 `public.log_rsvp_change()` | **`private.log_rsvp_change()`.** T-103과 같은 이유(어드바이저 경고). `private.set_updated_at()` 트리거 3개도 T-106에서 함께 넣어 T-101의 `updated_at` 부채를 해소했다 |
+
 추가로 알아 둘 것:
 
+- **분당 상한은 20회, 이벤트 단위다.** 한 참여자가 같은 분에 다른 참여자의 응답을 막을 수 있지만 모임 규모에서 부딪힐 일이 드물어 수용했다. 필요해지면 키를 `(event_id, guest_key, minute_bucket)`으로 확장한다.
+- **상한에 걸린 호출은 롤백되므로 카운터 증가분도 되돌아간다.** 결과적으로 카운터는 "성공한 호출 수"에 고정되고 이후 호출은 계속 거부된다. 반대로 검증에서 떨어지는 요청(이름 오류 등)은 예산을 소모하지 않는다 — 별도 트랜잭션이 필요하고 MVP 범위 밖이다.
+- 오래된 bucket은 호출 중 **확률적으로(1%) 정리**한다. `pg_cron` 도입은 MVP 밖이다.
 - **`revoke execute ... from public`만으로는 `anon`이 막히지 않는다.** Supabase가 public 스키마 함수의 EXECUTE를 `anon`·`authenticated`·`service_role`에게 기본 권한으로 **명시적으로** 부여하기 때문이다. T-104에서 PUBLIC과 `anon`을 모두 명시해야 한다.
 - `is_settlement_host(uuid)` 헬퍼를 추가했다. `settlement_items`·`settlement_shares`는 `event_id`를 직접 갖지 않아 정책 4곳에 중첩 `exists`가 흩어진다.
 - **적용한 마이그레이션 SQL을 `supabase/migrations/`에 남긴다**(`shrimp-rules.md` §5.3). `apply_migration`은 원격에만 적용하므로 파일이 없으면 스키마가 저장소에 존재하지 않는다.
