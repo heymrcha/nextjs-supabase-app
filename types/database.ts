@@ -89,7 +89,7 @@ export type Database = {
           maybe_deadline?: string | null;
           rsvp_closes_at?: string | null;
           share_expires_at?: string | null;
-          share_token: string;
+          share_token?: string;
           starts_at: string;
           title: string;
           updated_at?: string;
@@ -323,7 +323,7 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      generate_share_token: { Args: never; Returns: string };
     };
     Enums: {
       rsvp_status: "attending" | "declined" | "maybe";
