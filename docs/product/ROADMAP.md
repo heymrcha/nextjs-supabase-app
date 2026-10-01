@@ -126,7 +126,7 @@ PRD 원문을 그대로 옮기면 동작하지 않는 지점이다. 각 작업 �
   - 선행: T-105
 - [x] **T-107 마이그레이션 `moim_guest_rate_limit`** — **`private`.`guest_rsvp_calls(event_id, minute_bucket, call_count)`** 카운터 테이블(`api`가 아니다 — T-108에서 `api`가 노출 스키마가 되면 그 안의 테이블은 `/rest/v1/guest_rsvp_calls` 경로가 생긴다. 권한이 없어 막히지만 표면을 만들지 않는 편이 낫다) + `guest_submit_rsvp` 안에서 `(event_id, date_trunc('minute', now()))` 기준 분당 상한 초과 시 `RATE_LIMITED`(`P0001`) 발생. 테이블은 `anon`에게 어떤 권한도 주지 않고 함수 내부에서만 갱신
   - 선행: T-105
-- [ ] **T-108 PostgREST 노출 스키마에 `api` 추가 (프로젝트 설정 — 마이그레이션 아님)**
+- [x] **T-108 PostgREST 노출 스키마에 `api` 추가 (프로젝트 설정 — 마이그레이션 아님)** — 재현 절차는 `docs/product/supabase-project-setup.md`에 기록했다. 노출 스키마는 `public, graphql_public, api`이고 `private`은 넣지 않는다
   - SQL로 해결되지 않는다. Supabase 대시보드 **Settings → API → Exposed schemas**에 `api`를 추가해야(또는 Management API의 `db_schema` 설정 갱신) `/rest/v1/rpc/guest_get_event`에 도달한다. 누락 시 `grant`가 모두 맞아도 `PGRST106` / 404가 난다
   - 클라이언트에서 `api` 스키마를 쓰는 방법을 함께 확정한다 — `createServerClient(..., { db: { schema: "api" } })`로 게스트 전용 클라이언트를 따로 만들거나 `supabase.schema("api").rpc(...)`를 사용. `lib/supabase/guest.ts`로 한 곳에 모은다
   - 설정 변경은 코드에 남지 않으므로 `docs/product/`에 한 줄 기록을 남기고 `.env.example` 주변 문서에 재현 절차를 적는다
@@ -188,6 +188,9 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
 
 | 13 | 카운터 테이블은 `api.guest_rsvp_calls` | **`private.guest_rsvp_calls`로 옮겼다.** T-108 이후 `api`의 테이블은 REST 경로가 생긴다. 내부 장부는 노출 스키마에 두지 않는다 |
 | 14 | 이력 트리거 함수는 `public.log_rsvp_change()` | **`private.log_rsvp_change()`.** T-103과 같은 이유(어드바이저 경고). `private.set_updated_at()` 트리거 3개도 T-106에서 함께 넣어 T-101의 `updated_at` 부채를 해소했다 |
+
+| 15 | `guest_submit_rsvp`의 `p_status`는 `public.rsvp_status` | **`text`로 바꿨다.** REST 경유 호출이 `permission denied for schema public`으로 실패했다 — PostgREST가 `anon` 역할로 `public.rsvp_status` 타입을 참조하는데 T-104에서 `anon`의 `public` USAGE를 걷었기 때문이다. 함수 안에서 검증 후 캐스팅한다. 새 오류 코드 `INVALID_STATUS`(P0001)가 생겼다 |
+| 16 | `set local role anon` SQL 검증으로 충분하다 | **아니다.** T-105는 DB 안에서 전부 통과했는데 REST 경유에서 #15가 터졌다. `api` 스키마 함수는 **반드시 REST로도 검증**해야 한다 — 타입 참조·프로파일 헤더 같은 PostgREST 고유 경로가 SQL 호출에는 없다 |
 
 추가로 알아 둘 것:
 
@@ -257,7 +260,7 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
 - [ ] **T-302 `POST /api/guest/rsvp` Route Handler** — 게스트 쓰기의 유일한 입구
   - zod로 body 검증 → 쿠키에서 `guest_key` 읽기(없으면 발급) → `api.guest_submit_rsvp` RPC → 응답에 쿠키 심기
   - **body의 `guest_key`는 무조건 무시하고 항상 쿠키 값만 사용한다.** 클라이언트가 남의 키를 지정할 수 없어야 한다
-  - 오류 코드 매핑: `EVENT_UNAVAILABLE` → 410, `RSVP_CLOSED` → 409, `INVALID_NAME` / `INVALID_NOTE` / `GUEST_KEY_REQUIRED` → 400, `RATE_LIMITED` → 429. 응답 형태를 하나로 통일하고 내부 메시지를 흘리지 않는다
+  - 오류 코드 매핑: `EVENT_UNAVAILABLE` → 410, `RSVP_CLOSED` → 409, `INVALID_NAME` / `INVALID_NOTE` / `INVALID_STATUS` / `GUEST_KEY_REQUIRED` → 400, `RATE_LIMITED` → 429. 응답 형태를 하나로 통일하고 내부 메시지를 흘리지 않는다
   - 철회 경로도 같은 Handler에서 처리하거나 `POST /api/guest/rsvp/withdraw`로 분리(결정 후 기록)
   - 선행: T-105, T-107, T-301
 - [ ] **T-303 `/e/[token]` + `/e/expired`** — 서버 컴포넌트에서 `api.guest_get_event(p_token, p_guest_key)` 호출
