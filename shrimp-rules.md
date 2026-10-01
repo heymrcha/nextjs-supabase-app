@@ -169,6 +169,8 @@ Next.js 16은 학습 데이터와 API가 다를 수 있다. 라우팅·캐싱·`
   - 이미 적용한 마이그레이션의 SQL은 `select version, name, array_to_string(statements, E';\n') from supabase_migrations.schema_migrations order by version`으로 되살릴 수 있다. 단 프로젝트가 살아 있을 때만이다.
   - 파일을 고쳐도 원격에는 반영되지 않는다. 적용된 마이그레이션은 수정하지 않고 새 마이그레이션을 추가한다.
 - 변경 후 반드시 `mcp__supabase__generate_typescript_types`로 `types/database.ts`를 재생성한다. 타입을 손으로 고치면 다음 생성에서 사라진다.
+  - **생성기는 기본 스키마(`public`)만 내보낸다.** 스키마를 고를 파라미터가 없다(CLI의 `--schema public,api`에 해당하는 옵션이 MCP에 없다). 그래서 `api` 스키마 RPC 3개의 계약은 손으로 쓴 `types/moim.ts`의 `GuestRpcArgs`·`GuestRpcErrorCode`에 있다. `api` 함수 시그니처를 바꾸면 **생성으로 잡히지 않으므로 `moim.ts`를 직접 맞춰야 한다.**
+  - `lib/supabase/{client,server}.ts`는 `createBrowserClient<Database>` / `createServerClient<Database>`로 제네릭을 받는다. `lib/supabase/guest.ts`는 받지 않는다 — `Database`에 `api` 키가 없어서 `db: { schema: "api" }`가 타입 오류가 된다.
 - 스키마·RLS·인덱스·트리거·함수를 쓰기 전에 `supabase-postgres-best-practices` 스킬을 로드한다.
 - SQL로 서버 파일을 읽거나 OS 명령을 실행하지 않는다.
 

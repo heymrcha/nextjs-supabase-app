@@ -70,6 +70,41 @@ export type GuestRsvpResult = {
   event_id: string;
 };
 
+/**
+ * `api` 스키마 RPC 3개의 호출 인자. `types/database.ts`에 없어서 여기 둔다 —
+ * MCP 타입 생성기는 기본 스키마(`public`)만 내보내고 스키마를 고를 옵션이 없다.
+ * 스키마를 바꾸면 이 타입도 손으로 맞춰야 한다(생성으로 잡히지 않는다).
+ *
+ * `p_status`가 enum이 아니라 `string`인 이유: PostgREST가 `anon` 역할로
+ * `public.rsvp_status` 타입을 참조하는데 `anon`에게 `public` usage가 없어
+ * `permission denied for schema public`이 났다. 함수가 text로 받아 내부에서 검증·캐스팅한다.
+ */
+export type GuestRpcArgs = {
+  guest_get_event: { p_token: string; p_guest_key?: string | null };
+  guest_submit_rsvp: {
+    p_token: string;
+    p_guest_key: string;
+    p_name: string;
+    p_status: RsvpStatus;
+    p_note?: string | null;
+  };
+  guest_withdraw_rsvp: { p_token: string; p_guest_key: string };
+};
+
+/**
+ * 게스트 RPC가 올리는 오류 코드. 전부 sqlstate P0001이고, 구분은 메시지로 한다.
+ * 예외는 EVENT_UNAVAILABLE(P0002)이다 — 존재하지 않음·삭제됨·만료됨을 구분하지 않는다.
+ * T-302가 이것을 HTTP 상태 코드로 옮긴다.
+ */
+export type GuestRpcErrorCode =
+  | "EVENT_UNAVAILABLE"
+  | "RSVP_CLOSED"
+  | "GUEST_KEY_REQUIRED"
+  | "INVALID_NAME"
+  | "INVALID_NOTE"
+  | "INVALID_STATUS"
+  | "RATE_LIMITED";
+
 /** 주최자 화면의 정산 요약. DB 구조가 아니라 계산 결과이므로 camelCase를 쓴다 */
 export type SettlementSummary = {
   total: number;

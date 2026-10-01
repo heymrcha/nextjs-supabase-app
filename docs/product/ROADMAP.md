@@ -131,7 +131,7 @@ PRD 원문을 그대로 옮기면 동작하지 않는 지점이다. 각 작업 �
   - 클라이언트에서 `api` 스키마를 쓰는 방법을 함께 확정한다 — `createServerClient(..., { db: { schema: "api" } })`로 게스트 전용 클라이언트를 따로 만들거나 `supabase.schema("api").rpc(...)`를 사용. `lib/supabase/guest.ts`로 한 곳에 모은다
   - 설정 변경은 코드에 남지 않으므로 `docs/product/`에 한 줄 기록을 남기고 `.env.example` 주변 문서에 재현 절차를 적는다
   - 선행: T-105
-- [ ] **T-109 `types/database.ts` 생성** — `mcp__supabase__generate_typescript_types`로 생성. `api` 스키마 함수 시그니처가 포함되는지 확인한다. **이후 스키마를 바꿀 때마다 재생성**하는 것을 규칙으로 못 박는다(`any` 금지 규칙과 직결)
+- [x] **T-109 `types/database.ts` 생성** — `mcp__supabase__generate_typescript_types`로 생성. `api` 스키마 함수 시그니처가 포함되는지 확인한다. **이후 스키마를 바꿀 때마다 재생성**하는 것을 규칙으로 못 박는다(`any` 금지 규칙과 직결)
   - 선행: T-105, T-106, T-107
 - [ ] **T-110 보안 검증 (이 단계의 관문)**
   - `mcp__supabase__get_advisors`(security) 실행 → RLS 누락 · SECURITY DEFINER · mutable `search_path` **경고 0건**
@@ -191,6 +191,8 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
 
 | 15 | `guest_submit_rsvp`의 `p_status`는 `public.rsvp_status` | **`text`로 바꿨다.** REST 경유 호출이 `permission denied for schema public`으로 실패했다 — PostgREST가 `anon` 역할로 `public.rsvp_status` 타입을 참조하는데 T-104에서 `anon`의 `public` USAGE를 걷었기 때문이다. 함수 안에서 검증 후 캐스팅한다. 새 오류 코드 `INVALID_STATUS`(P0001)가 생겼다 |
 | 16 | `set local role anon` SQL 검증으로 충분하다 | **아니다.** T-105는 DB 안에서 전부 통과했는데 REST 경유에서 #15가 터졌다. `api` 스키마 함수는 **반드시 REST로도 검증**해야 한다 — 타입 참조·프로파일 헤더 같은 PostgREST 고유 경로가 SQL 호출에는 없다 |
+
+| 17 | `types/database.ts`에 `api` 함수 3개 시그니처가 들어간다 | **들어가지 않는다.** MCP 생성기는 기본 스키마(`public`)만 내보내고 스키마를 고를 옵션이 없다. `api` RPC 계약은 손으로 쓴 `types/moim.ts`(`GuestRpcArgs`·`GuestRpcErrorCode`)에 두었다 — 생성물과 수작성의 역할 분리와도 맞는다. **`api` 함수를 바꾸면 생성으로 잡히지 않으므로 `moim.ts`를 직접 고쳐야 한다** |
 
 추가로 알아 둘 것:
 
