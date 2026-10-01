@@ -324,6 +324,7 @@ export type Database = {
     };
     Functions: {
       generate_share_token: { Args: never; Returns: string };
+      regenerate_share_token: { Args: { p_event_id: string }; Returns: string };
     };
     Enums: {
       rsvp_status: "attending" | "declined" | "maybe";
