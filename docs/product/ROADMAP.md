@@ -133,18 +133,24 @@ PRD 원문을 그대로 옮기면 동작하지 않는 지점이다. 각 작업 �
   - 선행: T-105
 - [x] **T-109 `types/database.ts` 생성** — `mcp__supabase__generate_typescript_types`로 생성. `api` 스키마 함수 시그니처가 포함되는지 확인한다. **이후 스키마를 바꿀 때마다 재생성**하는 것을 규칙으로 못 박는다(`any` 금지 규칙과 직결)
   - 선행: T-105, T-106, T-107
-- [ ] **T-110 보안 검증 (이 단계의 관문)**
-  - `mcp__supabase__get_advisors`(security) 실행 → RLS 누락 · SECURITY DEFINER · mutable `search_path` **경고 0건**
-  - `anon` publishable key로 `rsvps` · `events` · `rsvp_changes` · `settlement_shares`에 **직접 select / insert 모두 실패**하는지 수동 확인
-  - `anon` 키로 `api.guest_get_event` RPC는 **성공**하고, 잘못된 토큰 · 만료된 토큰 · 삭제된 이벤트가 **동일한 실패 응답**을 내는지 확인
-  - `anon` 키로 `public.log_rsvp_change` 직접 호출이 **실패**하는지 확인(T-104의 `revoke execute`가 실제로 걸렸는가)
-  - RLS 헬퍼는 T-103에서 `private` 스키마로 옮겼다. `public.is_event_host`는 존재하지 않으므로 대신 **`private`이 PostgREST 노출 스키마에 없어 REST로 도달 불가**함을 확인한다(`/rest/v1/rpc/is_event_host` → 404)
+- [x] **T-110 보안 검증 (이 단계의 관문)** — 통과. 전체 결과는 `docs/product/phase1-security-gate.md`
+  - `mcp__supabase__get_advisors`(security) → **경고 0건이 아니다.** WARN 2종 · INFO 1종이 남고 **3건 전부 설계 의도에 따른 영구 예외**로 판정했다(아래). 관문 기준을 "**스키마 설정 오류에서 비롯한 경고 0건**"으로 좁혔다
+    - `anon_security_definer_function_executable`(WARN 3건) — 게스트 함수 3개가 anon 실행 가능하다는 지적. 이게 아키텍처의 정의 그 자체다. 경고를 없애는 세 조치(execute 회수 · SECURITY INVOKER 전환 · api 밖으로 이동)가 모두 게스트 기능 폐기와 같다. **4건째가 등장하면 그때가 실제 사고다**
+    - `rls_enabled_no_policy`(INFO 1건) — `private.guest_rsvp_calls`. 정책 부재 = 전면 거부가 노린 상태다. 권고대로 정책을 추가하면 오히려 접근 경로를 만든다. RLS는 켠 채 둔다
+    - `auth_leaked_password_protection`(WARN 1건) — 스키마가 아닌 프로젝트 Auth 설정이고 MCP에 해당 도구가 없다. 게스트 노출 표면과 무관하므로 Phase 2를 막지 않는다. T-604 이전에 대시보드에서 켠다
+  - `anon` publishable key로 4개 테이블 select / insert **6회 시도 전부 실패** — 전부 `401` + `42501 permission denied for schema public`. RLS 평가 전에 스키마 usage 단계에서 막힌다
+  - `api.guest_get_event` RPC는 200. 무효 토큰 · 만료 토큰 · 삭제된 이벤트 3케이스의 실패 본문이 **md5까지 동일**(`P0002 EVENT_UNAVAILABLE`)
+  - 페이로드 검사: `p_guest_key` 없이 호출하면 전 행 `note: null`, 본인 키로 호출하면 본인 행만 `note` 채움. 응답 전체에 `guest_key` 키 자체가 없다
+  - **`api`에서 anon 실행 가능 함수가 정확히 3개**이고 각 `proacl`에 PUBLIC(`=X/`) 항목이 없다. 기본 권한을 믿지 않고 함수별 ACL을 직접 셌다. `api`에 함수를 추가할 때마다 이 계수를 다시 확인한다
+  - `public` 스키마에는 함수가 하나도 남지 않았다(헬퍼는 T-103, 트리거 함수는 T-106에서 `private`으로 이동). 따라서 "`public.log_rsvp_change`를 anon이 직접 호출" 시나리오는 대상 자체가 없다
+  - `private` 헬퍼 3개는 REST로 도달 불가 — public · api 프로필에서 `PGRST202` 404, `Accept-Profile: private`은 `PGRST106` 406
+  - 검증 데이터(이벤트 3건 + 응답 3건 + 공지 1건)는 Phase 2~3 브라우저 검증에 재사용하려고 **보존**했다. 추적용으로 쓴 예측 가능한 토큰은 검증 후 32바이트 난수로 교체했다
   - 선행: T-104 ~ T-109 전부
 
 **완료 기준**
 
 - 7개 테이블 모두 RLS 활성 + `anon` 대상 정책 0개
-- `mcp__supabase__get_advisors` security 경고 **0건**
+- `mcp__supabase__get_advisors` security 경고가 **스키마 설정 오류 0건**(T-110에서 기준을 좁혔다 — 남은 WARN 2종·INFO 1종은 설계 의도에 따른 영구 예외이며 근거는 `docs/product/phase1-security-gate.md` 5절)
 - **`anon` 키로 테이블 직접 `select` / `insert`가 모두 실패**(권한 오류 또는 0행), RPC 3개만 도달
 - `/rest/v1/rpc/guest_get_event`가 404가 아니라 정상 응답(T-108 반영 확인)
 - `types/database.ts`가 최신 스키마와 일치
@@ -203,7 +209,7 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
 - `is_settlement_host(uuid)` 헬퍼를 추가했다. `settlement_items`·`settlement_shares`는 `event_id`를 직접 갖지 않아 정책 4곳에 중첩 `exists`가 흩어진다.
 - **적용한 마이그레이션 SQL을 `supabase/migrations/`에 남긴다**(`shrimp-rules.md` §5.3). `apply_migration`은 원격에만 적용하므로 파일이 없으면 스키마가 저장소에 존재하지 않는다.
 - ~~`updated_at` 자동 갱신 수단이 없다~~ → **T-106에서 해소**했다. `private.set_updated_at()` before update 트리거를 `events`·`event_notices`·`rsvps` 세 테이블에 달았다. 애플리케이션이 과거 시각을 직접 넣어도 트리거가 `now()`로 덮는다. `rsvps.responded_at`은 건드리지 않으므로 정원 순번 기준이 보존된다.
-- `get_advisors`에 `auth_leaked_password_protection` WARN이 남아 있다. 스키마가 아니라 프로젝트 Auth 설정이므로 마이그레이션으로 해결할 수 없다. **T-110의 "경고 0건" 관문 전에 대시보드에서 켜거나 범위 밖으로 명시해야 한다.**
+- `get_advisors`에 `auth_leaked_password_protection` WARN이 남아 있다. 스키마가 아니라 프로젝트 Auth 설정이므로 마이그레이션으로 해결할 수 없다. **T-110에서 범위 밖으로 명시해 통과시켰다**(게스트 노출 표면과 무관). 아직 꺼져 있으므로 T-604 이전에 대시보드 → Authentication → Password에서 켠다.
 
 ---
 
