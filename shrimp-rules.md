@@ -72,7 +72,7 @@ AI 에이전트 전용 작업 규칙. 이 저장소에서만 통하는 제약과
 
 - 루트 진입점은 `proxy.ts`이고 실제 로직은 `lib/supabase/proxy.ts`의 `updateSession()`이다.
 - **`middleware.ts`를 만들지 않는다.** Next.js 16에서 이 프로젝트의 규약은 `proxy.ts`다.
-- 접근 제어는 `lib/supabase/proxy.ts`의 **`if` 문 하나**가 전부다. 현재 공개 경로는 `/`, `/login*`, `/auth*`, `/e/*`, `/api/guest/*`, 그리고 사문이 된 `/instruments*`(T-201에서 제거)이며 **그 외 전부 `/auth/login`으로 리다이렉트**된다.
+- 접근 제어는 `lib/supabase/proxy.ts`의 **`if` 문 하나**가 전부다. 공개 경로는 `/`, `/login*`, `/auth*`, `/e/*`, `/api/guest/*` **다섯 개뿐이고 그 외 전부 `/auth/login`으로 리다이렉트**된다(T-201에서 사문이 된 `/instruments*` 2줄을 제거했다). **새 공개 페이지를 만들면 이 `if`에 조건을 넣기 전까지는 열리지 않는다.**
 
 공개 경로 추가 예시 — 해야 하는 것:
 
@@ -446,7 +446,7 @@ Next.js 16 관련이면 node_modules/next/dist/docs/ 를 먼저 읽는다
 ```
 components/tutorial/ · deploy-button · hero · next-logo · supabase-logo · app/instruments/ 삭제됨
 app/page.tsx 는 모임 랜딩으로 대체됨. app/protected/ 는 남아 있다(T-202에서 제거 판단)
-남은 것: lib/supabase/proxy.ts 의 /instruments 예외 2줄 → T-201에서 제거한다
+lib/supabase/proxy.ts 의 /instruments 예외 2줄도 제거됨(T-201). 공개 경로는 / · /login* · /auth* · /e/* · /api/guest/* 다섯 개뿐이다
 ```
 
 **요구사항이 모호하다**

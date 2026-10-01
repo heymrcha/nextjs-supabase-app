@@ -57,7 +57,7 @@ PRD 원문을 그대로 옮기면 동작하지 않는 지점이다. 각 작업 �
 
 **완료 기준**
 
-- `grep -r "tutorial\|deploy-button\|next-logo\|supabase-logo\|instruments" app components lib` 결과가 0건(T-201 전이라 `proxy.ts`의 `/instruments`만 예외로 남을 수 있음 → T-201에서 해소)
+- `grep -r "tutorial\|deploy-button\|next-logo\|supabase-logo\|instruments" app components lib` 결과가 0건(T-201에서 `proxy.ts`의 `/instruments` 2줄까지 제거해 완전히 0건이 됐다)
 - 위 11개 라우트가 모두 200으로 열리고 빈 화면을 보여준다
 - `react-hook-form`, `zod`, `@hookform/resolvers`가 `package.json` `dependencies`에 존재
 
@@ -217,9 +217,12 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
 
 목표: 로그인한 주최자가 이벤트를 만들고, 공유 링크를 발급해 카카오톡에 붙일 수 있는 상태까지. 게스트 화면은 아직 없다.
 
-- [ ] **T-201 `proxy.ts` 공개 경로 정리** — `lib/supabase/proxy.ts`의 접근 제어 `if`를 수정
+- [x] **T-201 `proxy.ts` 공개 경로 정리** — `lib/supabase/proxy.ts`의 접근 제어 `if`를 수정
   - ~~추가: `!request.nextUrl.pathname.startsWith("/e/")`, `!request.nextUrl.pathname.startsWith("/api/guest/")`~~ → **Phase 0에서 선반영 완료**(커밋 `86bb569`). 다시 넣지 않는다
-  - 제거: `/instruments` 예외 2줄(T-001에서 페이지를 삭제했으므로)
+  - 제거 완료: `/instruments` 예외 2줄. `grep -rn instruments app components lib proxy.ts` 0건
+  - 공개 경로는 이제 `/` · `/login*` · `/auth*` · `/e/*` · `/api/guest/*` **다섯 개뿐**이다. 이 `if` 하나가 전체 접근 제어라는 사실을 코드 주석과 `shrimp-rules.md` §4.1에 명시했다
+  - 비로그인 실측: `/events` · `/events/new` · `/protected` · `/instruments` 모두 307 → `/auth/login`, `/e/expired` · `/e/<token>` · `/` · `/auth/login` 200, `POST /api/guest/rsvp` 501
+  - 로그인 상태의 `/events` 200은 **실측하지 않았다** — 세션을 만들 자격 증명이 없다. 이 diff는 공개 경로 조건만 줄였고 `!user`가 false면 `if` 전체가 성립하지 않으므로 로그인 경로는 영향받지 않는다. T-202 작업 중 브라우저에서 확인한다
   - 로컬에서 "로그인 안 했는데 보호 페이지가 열린다"면 `.env.local`의 두 변수 누락으로 `hasEnvVars`가 falsy가 된 경우다. 이 함정은 스타터 동작 그대로 유지한다
   - 선행: T-001
 - [ ] **T-202 `/events` 대시보드** — 내 이벤트 목록(다가오는 / 지난 분리), 인원 요약(참석 / 불참 / 미정), 미수금 배지, 빈 상태 CTA
