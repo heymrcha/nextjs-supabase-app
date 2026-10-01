@@ -172,6 +172,25 @@ Next.js 16은 학습 데이터와 API가 다를 수 있다. 라우팅·캐싱·`
 - 스키마·RLS·인덱스·트리거·함수를 쓰기 전에 `supabase-postgres-best-practices` 스킬을 로드한다.
 - SQL로 서버 파일을 읽거나 OS 명령을 실행하지 않는다.
 
+#### 5.3.1 함수를 만들 때마다 PUBLIC·anon EXECUTE를 명시적으로 걷는다
+
+**`ALTER DEFAULT PRIVILEGES ... REVOKE EXECUTE ... FROM PUBLIC`은 이 환경에서 동작하지 않는다.** 2026-10-01 T-104에서 실증했다 — 기본 권한 행을 만들어도(`{postgres=X}`) 새로 만든 함수의 ACL은 `NULL`(내장 기본값)로 남고, 내장 기본값은 **PUBLIC에 EXECUTE를 준다**. `ALTER DEFAULT PRIVILEGES`의 GRANT는 내장 기본값에 더해지지만 REVOKE는 내장 기본값을 깎지 못한다.
+
+결과: `api`·`public`에 함수를 추가하면 **`anon`에게 조용히 공개된다**(`anon`은 `api` 스키마에 USAGE를 갖고 있다).
+
+그래서 함수를 만든 **직후 같은 마이그레이션에서** 반드시 아래를 짝지어 쓴다.
+
+```sql
+create function api.guest_get_event(...) ... ;
+revoke execute on function api.guest_get_event(text, uuid) from public, anon;
+-- 게스트에게 열어야 하는 함수만 다시 명시적으로 준다
+grant execute on function api.guest_get_event(text, uuid) to anon;
+```
+
+- 인자 타입을 포함한 시그니처로 지정한다. 오버로드가 있으면 이름만으로는 대상이 특정되지 않는다.
+- `private` 스키마 함수는 `anon`에게 스키마 USAGE가 없어 REST 표면이 없지만, PUBLIC EXECUTE는 같은 이유로 남는다. 같이 걷는다.
+- 검증: `has_function_privilege('anon', 'api.f(text,uuid)', 'execute')`로 확인한다. 기본 권한 설정을 믿고 넘기지 않는다.
+
 ---
 
 ## 6. MVP 도메인 규칙 (게스트 · 정산)

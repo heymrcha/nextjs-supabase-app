@@ -103,13 +103,13 @@ PRD 원문을 그대로 옮기면 동작하지 않는 지점이다. 각 작업 �
   - 정책 조건의 `auth.uid()`는 반드시 `(select auth.uid())`로 감싼다(행마다 재평가 방지)
   - `rsvp_changes`는 `for select`만. INSERT/UPDATE/DELETE 정책을 만들지 않아 주최자도 이력을 조작할 수 없게 한다
   - 선행: T-101, T-102
-- [ ] **T-104 마이그레이션 `moim_api_schema_grants`** — 게스트 출입구 스키마와 권한 기본값 정리
+- [x] **T-104 마이그레이션 `moim_api_schema_grants`** — 게스트 출입구 스키마와 권한 기본값 정리
   - `create schema if not exists api;`
   - **`grant usage on schema api to anon;`** ← PRD §7.3 누락분. 이게 없으면 함수에 `grant execute`를 줘도 `permission denied for schema api`로 호출이 실패한다. `authenticated`에도 동일하게 부여
   - `revoke all on schema public from anon;`
   - `revoke execute on all functions in schema public from anon, public;`
   - `alter default privileges in schema public revoke execute on functions from anon, public;`
-  - `alter default privileges in schema api revoke execute on functions from anon, public;` — `api` 스키마에 새 함수를 추가해도 자동 공개되지 않게 한다. 공개는 함수별 `grant execute`로만
+  - ~~`alter default privileges in schema api revoke execute on functions from anon, public;`~~ — **동작하지 않는다.** `ALTER DEFAULT PRIVILEGES`의 REVOKE는 내장 기본값인 PUBLIC EXECUTE를 깎지 못한다(2026-10-01 실증). 기본 권한 행을 만들어도 새 함수 ACL이 `NULL`로 남아 PUBLIC에 EXECUTE가 유지된다. **함수를 만들 때마다 같은 마이그레이션에서 `revoke execute ... from public, anon` 후 필요한 것만 `grant execute ... to anon`** 하는 것이 유일한 수단이다(`shrimp-rules.md` §5.3.1). T-110이 `api`에서 anon 실행 가능 함수 수를 직접 세는 것으로 그물을 대신한다
   - `revoke all on all tables in schema public from anon;`
   - 선행: T-103
 - [ ] **T-105 마이그레이션 `moim_guest_functions`** — `api` 스키마에 SECURITY DEFINER 함수 3개. 전부 `set search_path = ''` + 모든 참조를 스키마 수식
@@ -180,6 +180,9 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
 | 7   | RLS 헬퍼는 `public.is_event_host`         | **`private` 스키마로 옮겼다.** `get_advisors`가 public의 SECURITY DEFINER 함수를 WARN으로 지적하고 T-110은 경고 0건이 관문이다. `authenticated`의 EXECUTE를 걷는 방법은 쓸 수 없다 — RLS 정책 평가가 호출자 EXECUTE를 요구해 모든 조회가 막힌다(실증 확인) |
 | 8   | 인덱스 5개                                | `event_notices (event_id)`를 추가했다. PRD §6과 로드맵 양쪽에서 빠져 있었는데 FK + cascade + RLS 조건 컬럼이다                                                                                                                                             |
 | 9   | 제약은 로드맵에 적힌 4건                  | 8건으로 늘렸다. 특히 `settlements.rounding_unit > 0`은 T-502의 나눗셈 분모라 0이면 0으로 나누기가 된다                                                                                                                                                     |
+
+| 10 | `alter default privileges`로 `api` 자동 공개를 막는다 | **막지 못한다.** REVOKE는 내장 기본값의 PUBLIC EXECUTE를 깎지 않는다. 프로브 함수로 두 번 실증했고, 명시적 `revoke execute ... from public, anon`만 확실히 동작한다(`shrimp-rules.md` §5.3.1) |
+| 11 | `revoke all on schema public from anon`으로 USAGE가 걷힌다 | **안 걷힌다.** `public` ACL의 `=U/pg_database_owner`(PUBLIC)를 `anon`이 상속한다. `revoke usage on schema public from public`이 필요했고, 그 부작용으로 PostgREST 접속 역할 `authenticator`도 USAGE를 잃어 명시적으로 복구했다 |
 
 추가로 알아 둘 것:
 
