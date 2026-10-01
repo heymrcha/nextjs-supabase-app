@@ -1,26 +1,57 @@
-import { DeployButton } from "@/components/deploy-button";
-import { EnvVarWarning } from "@/components/env-var-warning";
 import { AuthButton } from "@/components/auth-button";
-import { Hero } from "@/components/hero";
+import { EnvVarWarning } from "@/components/env-var-warning";
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import { ConnectSupabaseSteps } from "@/components/tutorial/connect-supabase-steps";
-import { SignUpUserSteps } from "@/components/tutorial/sign-up-user-steps";
+import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/server";
 import { hasEnvVars } from "@/lib/utils";
 import Link from "next/link";
 import { Suspense } from "react";
 
+const FEATURES = [
+  {
+    title: "링크 하나로 공지",
+    body: "일시·장소·준비물을 한 페이지에 모아 공유합니다. 참여자는 가입하지 않아도 열어볼 수 있습니다.",
+  },
+  {
+    title: "참석 집계",
+    body: "참석·불참·미정을 이름만으로 응답받고, 정원 초과와 응답 변경 이력까지 주최자가 확인합니다.",
+  },
+  {
+    title: "비용 정산",
+    body: "비용 항목을 넣으면 참석자 균등분할과 1인당 금액을 계산하고, 입금 여부를 추적합니다.",
+  },
+];
+
+// 세션 확인은 동적이므로 페이지에서 직접 await하지 않는다(cacheComponents)
+async function PrimaryCta() {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+
+  return data?.claims ? (
+    <Button asChild size="lg">
+      <Link href="/events">내 모임 보기</Link>
+    </Button>
+  ) : (
+    <div className="flex flex-wrap gap-3">
+      <Button asChild size="lg">
+        <Link href="/auth/sign-up">시작하기</Link>
+      </Button>
+      <Button asChild size="lg" variant="outline">
+        <Link href="/auth/login">로그인</Link>
+      </Button>
+    </div>
+  );
+}
+
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center">
-      <div className="flex w-full flex-1 flex-col items-center gap-20">
+    <main className="flex min-h-svh flex-col items-center">
+      <div className="flex w-full flex-1 flex-col items-center">
         <nav className="flex h-16 w-full justify-center border-b border-b-foreground/10">
-          <div className="flex w-full max-w-5xl items-center justify-between p-3 px-5 text-sm">
-            <div className="flex items-center gap-5 font-semibold">
-              <Link href={"/"}>Next.js Supabase Starter</Link>
-              <div className="flex items-center gap-2">
-                <DeployButton />
-              </div>
-            </div>
+          <div className="flex w-full max-w-5xl items-center justify-between gap-3 p-3 px-4 text-sm sm:px-6">
+            <Link href="/" className="font-semibold">
+              모임
+            </Link>
             {!hasEnvVars ? (
               <EnvVarWarning />
             ) : (
@@ -30,26 +61,38 @@ export default function Home() {
             )}
           </div>
         </nav>
-        <div className="flex max-w-5xl flex-1 flex-col gap-20 p-5">
-          <Hero />
-          <main className="flex flex-1 flex-col gap-6 px-4">
-            <h2 className="mb-4 text-xl font-medium">Next steps</h2>
-            {hasEnvVars ? <SignUpUserSteps /> : <ConnectSupabaseSteps />}
-          </main>
+
+        <div className="flex w-full max-w-5xl flex-1 flex-col gap-12 px-4 py-10 sm:gap-20 sm:px-6 sm:py-16">
+          <section className="flex flex-col items-start gap-6">
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
+              모임 공지와 정산을
+              <br />
+              링크 하나로 끝냅니다
+            </h1>
+            <p className="max-w-2xl text-base text-muted-foreground sm:text-lg">
+              단발 모임의 공지·참석 집계·비용 정산을 한곳에서 처리합니다.
+              참여자는 가입하지 않고 링크만으로 응답합니다.
+            </p>
+            <Suspense fallback={<div className="h-11" />}>
+              <PrimaryCta />
+            </Suspense>
+          </section>
+
+          <section className="grid gap-4 sm:grid-cols-3 sm:gap-6">
+            {FEATURES.map((feature) => (
+              <div
+                key={feature.title}
+                className="flex flex-col gap-2 rounded-lg border p-5"
+              >
+                <h2 className="font-semibold">{feature.title}</h2>
+                <p className="text-sm text-muted-foreground">{feature.body}</p>
+              </div>
+            ))}
+          </section>
         </div>
 
-        <footer className="mx-auto flex w-full items-center justify-center gap-8 border-t py-16 text-center text-xs">
-          <p>
-            Powered by{" "}
-            <a
-              href="https://supabase.com/?utm_source=create-next-app&utm_medium=template&utm_term=nextjs"
-              target="_blank"
-              className="font-bold hover:underline"
-              rel="noreferrer"
-            >
-              Supabase
-            </a>
-          </p>
+        <footer className="mx-auto flex w-full items-center justify-center gap-6 border-t px-4 py-8 text-center text-xs sm:gap-8 sm:py-10">
+          <p className="text-muted-foreground">모임</p>
           <ThemeSwitcher />
         </footer>
       </div>
