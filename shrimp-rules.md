@@ -56,10 +56,11 @@ AI 에이전트 전용 작업 규칙. 이 저장소에서만 통하는 제약과
 | 화면이 소비하는 뷰 타입       | `types/moim.ts`                               |
 | DB 생성 타입                  | `types/database.ts` (**직접 수정 금지**)      |
 | 커스텀 훅                     | `hooks/`                                      |
+| 적용한 마이그레이션 SQL       | `supabase/migrations/` (§5.3 참고)            |
 | 제품 문서                     | `docs/product/`                               |
 | 스택 가이드                   | `docs/guides/`                                |
 
-- `types/`(`moim.ts`)와 `lib/moim/`는 2026-10-01 T-005에서 생겼다. `hooks/`와 `supabase/`는 **아직 없다** — 처음 필요할 때 만든다(빈 디렉터리는 git에 남지 않으므로 미리 만들지 않는다).
+- `types/`(`moim.ts`)와 `lib/moim/`는 2026-10-01 T-005에서, `supabase/migrations/`는 같은 날 T-101~T-103 적용분을 내려받으며 생겼다. `hooks/`는 **아직 없다** — 처음 필요할 때 만든다(빈 디렉터리는 git에 남지 않으므로 미리 만들지 않는다).
 - `docs/guides/project-structure.md`는 **목표 구조**이며 현재 트리와 다르다. 그 문서에 적힌 디렉터리가 있다고 가정하지 않는다.
 - `src/` 디렉터리를 만들지 않는다. `tsconfig.json`의 `paths`는 `@/*` → `./*` 이므로 루트 기준이다.
 
@@ -163,6 +164,10 @@ Next.js 16은 학습 데이터와 API가 다를 수 있다. 라우팅·캐싱·`
 ### 5.3 스키마 변경
 
 - 마이그레이션은 `mcp__supabase__apply_migration`으로 **이름을 붙여 하나씩** 적용한다. `execute_sql`로 DDL을 실행하지 않는다(마이그레이션 이력에 남지 않는다).
+- **적용한 SQL을 `supabase/migrations/<version>_<name>.sql`에 같은 내용으로 남기고 커밋한다.** `apply_migration`은 원격에만 적용하므로 이 파일을 쓰지 않으면 스키마가 저장소에 존재하지 않는다. 무료 플랜 프로젝트는 사라질 수 있고(이 프로젝트는 2026-10-01에 한 번 NXDOMAIN 상태가 됐다) 그때 설계가 통째로 날아간다. 리뷰 대상이 되지 않는다는 문제도 같다 — 스키마 결정은 코드로 읽혀야 한다.
+  - `version`은 적용 후 `mcp__supabase__list_migrations`가 돌려주는 값을 그대로 쓴다. 손으로 만들지 않는다.
+  - 이미 적용한 마이그레이션의 SQL은 `select version, name, array_to_string(statements, E';\n') from supabase_migrations.schema_migrations order by version`으로 되살릴 수 있다. 단 프로젝트가 살아 있을 때만이다.
+  - 파일을 고쳐도 원격에는 반영되지 않는다. 적용된 마이그레이션은 수정하지 않고 새 마이그레이션을 추가한다.
 - 변경 후 반드시 `mcp__supabase__generate_typescript_types`로 `types/database.ts`를 재생성한다. 타입을 손으로 고치면 다음 생성에서 사라진다.
 - 스키마·RLS·인덱스·트리거·함수를 쓰기 전에 `supabase-postgres-best-practices` 스킬을 로드한다.
 - SQL로 서버 파일을 읽거나 OS 명령을 실행하지 않는다.

@@ -91,14 +91,14 @@ PRD 원문을 그대로 옮기면 동작하지 않는 지점이다. 각 작업 �
 
 목표: 게스트가 테이블을 전혀 만지지 못하고 `api` 스키마의 함수 3개만 호출하는 구조를 DB 레벨에서 완성한다. 마이그레이션은 `mcp__supabase__apply_migration`으로 하나씩 이름을 붙여 적용한다.
 
-- [ ] **T-101 마이그레이션 `moim_core_tables`** — enum `public.rsvp_status`(`attending` / `declined` / `maybe`), 테이블 `events`, `event_notices`, `rsvps`, `rsvp_changes`
+- [x] **T-101 마이그레이션 `moim_core_tables`** — enum `public.rsvp_status`(`attending` / `declined` / `maybe`), 테이블 `events`, `event_notices`, `rsvps`, `rsvp_changes`
   - `events`: PRD §6 컬럼 전체 + `expected_headcount int null`(§9 링크 응답률 측정용 "예상 인원")
   - 인덱스: `events (host_id, starts_at desc)`, `unique (share_token)`, `rsvps (event_id)`, `rsvp_changes (event_id)`, `rsvp_changes (rsvp_id, changed_at)`
   - 제약: `rsvps unique (event_id, guest_key)`, `events.title` 1~100자 체크, `rsvps.display_name` 1~20자 체크, `rsvps.note` 200자 체크
   - 금액·인원은 정수 컬럼만 사용(부동소수 금지). 연락처 컬럼은 어떤 형태로도 만들지 않는다
-- [ ] **T-102 마이그레이션 `moim_settlement_tables`** — `settlements`(`event_id` UNIQUE, `rounding_unit` default 10, `snapshot_at`, `is_published`), `settlement_items`, `settlement_shares`(`rsvp_id` on delete set null, `unique (settlement_id, rsvp_id)`)
+- [x] **T-102 마이그레이션 `moim_settlement_tables`** — `settlements`(`event_id` UNIQUE, `rounding_unit` default 10, `snapshot_at`, `is_published`), `settlement_items`, `settlement_shares`(`rsvp_id` on delete set null, `unique (settlement_id, rsvp_id)`)
   - 선행: T-101
-- [ ] **T-103 마이그레이션 `moim_rls_policies`** — 7개 테이블 전부 `enable row level security`, `public.is_event_host(uuid)`(`security definer`, `set search_path = ''`, `stable`), `authenticated` 대상 정책만 작성
+- [x] **T-103 마이그레이션 `moim_rls_policies`** — 7개 테이블 전부 `enable row level security`, `public.is_event_host(uuid)`(`security definer`, `set search_path = ''`, `stable`), `authenticated` 대상 정책만 작성
   - **`anon` 대상 정책을 하나도 만들지 않는다**(정책 부재 = 전면 거부)
   - 정책 조건의 `auth.uid()`는 반드시 `(select auth.uid())`로 감싼다(행마다 재평가 방지)
   - `rsvp_changes`는 `for select`만. INSERT/UPDATE/DELETE 정책을 만들지 않아 주최자도 이력을 조작할 수 없게 한다
@@ -137,7 +137,8 @@ PRD 원문을 그대로 옮기면 동작하지 않는 지점이다. 각 작업 �
   - `mcp__supabase__get_advisors`(security) 실행 → RLS 누락 · SECURITY DEFINER · mutable `search_path` **경고 0건**
   - `anon` publishable key로 `rsvps` · `events` · `rsvp_changes` · `settlement_shares`에 **직접 select / insert 모두 실패**하는지 수동 확인
   - `anon` 키로 `api.guest_get_event` RPC는 **성공**하고, 잘못된 토큰 · 만료된 토큰 · 삭제된 이벤트가 **동일한 실패 응답**을 내는지 확인
-  - `anon` 키로 `public.is_event_host`, `public.log_rsvp_change` 직접 호출이 **실패**하는지 확인(T-104의 `revoke execute`가 실제로 걸렸는가)
+  - `anon` 키로 `public.log_rsvp_change` 직접 호출이 **실패**하는지 확인(T-104의 `revoke execute`가 실제로 걸렸는가)
+  - RLS 헬퍼는 T-103에서 `private` 스키마로 옮겼다. `public.is_event_host`는 존재하지 않으므로 대신 **`private`이 PostgREST 노출 스키마에 없어 REST로 도달 불가**함을 확인한다(`/rest/v1/rpc/is_event_host` → 404)
   - 선행: T-104 ~ T-109 전부
 
 **완료 기준**
@@ -168,6 +169,25 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
 - `mcp__supabase__get_advisors` (type: security) 실행 결과 캡처
 - `mcp__supabase__list_tables`로 RLS 플래그 확인
 - 응답 JSON에 `note`(타인 행) · `guest_key`가 **없는지** 눈으로 확인
+
+---
+
+### Phase 1 진행 중 계획과 달라진 점 (2026-10-01, T-101~T-103)
+
+| #   | 계획                                      | 실제                                                                                                                                                                                                                                                       |
+| --- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 6   | `rsvp_changes.rsvp_id`는 cascade (PRD §6) | **`on delete set null`로 바꿨다.** cascade면 응답을 삭제할 때 이력이 함께 사라져 같은 문서 §8.4의 append-only 원칙과 T-306 이력 화면이 무너진다                                                                                                            |
+| 7   | RLS 헬퍼는 `public.is_event_host`         | **`private` 스키마로 옮겼다.** `get_advisors`가 public의 SECURITY DEFINER 함수를 WARN으로 지적하고 T-110은 경고 0건이 관문이다. `authenticated`의 EXECUTE를 걷는 방법은 쓸 수 없다 — RLS 정책 평가가 호출자 EXECUTE를 요구해 모든 조회가 막힌다(실증 확인) |
+| 8   | 인덱스 5개                                | `event_notices (event_id)`를 추가했다. PRD §6과 로드맵 양쪽에서 빠져 있었는데 FK + cascade + RLS 조건 컬럼이다                                                                                                                                             |
+| 9   | 제약은 로드맵에 적힌 4건                  | 8건으로 늘렸다. 특히 `settlements.rounding_unit > 0`은 T-502의 나눗셈 분모라 0이면 0으로 나누기가 된다                                                                                                                                                     |
+
+추가로 알아 둘 것:
+
+- **`revoke execute ... from public`만으로는 `anon`이 막히지 않는다.** Supabase가 public 스키마 함수의 EXECUTE를 `anon`·`authenticated`·`service_role`에게 기본 권한으로 **명시적으로** 부여하기 때문이다. T-104에서 PUBLIC과 `anon`을 모두 명시해야 한다.
+- `is_settlement_host(uuid)` 헬퍼를 추가했다. `settlement_items`·`settlement_shares`는 `event_id`를 직접 갖지 않아 정책 4곳에 중첩 `exists`가 흩어진다.
+- **적용한 마이그레이션 SQL을 `supabase/migrations/`에 남긴다**(`shrimp-rules.md` §5.3). `apply_migration`은 원격에만 적용하므로 파일이 없으면 스키마가 저장소에 존재하지 않는다.
+- `updated_at` 자동 갱신 수단이 없다. 컬럼은 `default now()`지만 UPDATE 시 갱신되지 않는다(`moddatetime` 미설치). **T-106에서 함께 처리할지 결정한다** — 애플리케이션에 맡기면 경로마다 누락된다.
+- `get_advisors`에 `auth_leaked_password_protection` WARN이 남아 있다. 스키마가 아니라 프로젝트 Auth 설정이므로 마이그레이션으로 해결할 수 없다. **T-110의 "경고 0건" 관문 전에 대시보드에서 켜거나 범위 밖으로 명시해야 한다.**
 
 ---
 
