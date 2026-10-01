@@ -236,10 +236,14 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
   - `app/events/layout.tsx`에 nav(로그인 상태 · 테마 전환)를 추가했다 — 삭제한 `protected/layout.tsx`가 갖고 있던 것이다
   - 검증: RLS를 `set local role authenticated` + `request.jwt.claims`로 직접 확인(주최자 2건 / 다른 uid 0건), 인원 요약·미수금이 SQL 집계와 일치, 빈 상태 CTA 확인, 소프트 삭제된 이벤트는 목록에서 빠진다
   - 선행: T-109, T-201
-- [ ] **T-203 `/events/new` 이벤트 생성 폼** — 제목 · 일시 · 장소 · 설명 · 정원 · 응답 마감 · 미정 확정 기한 · 예상 인원 · 계좌 안내 문자열
-  - `react-hook-form` + `zod`(`@hookform/resolvers/zod`). zod 스키마는 `lib/moim/schemas.ts`에 두고 T-302의 서버 검증과 공유
-  - `share_token`은 생성 시 `crypto.randomBytes(32).toString("base64url")`로 서버에서 만든다. 클라이언트가 정하지 않는다
-  - 성공 시 `/events/[id]`로 이동
+- [x] **T-203 `/events/new` 이벤트 생성 폼** — 제목 · 일시 · 장소 · 설명 · 정원 · 응답 마감 · 미정 확정 기한 · 예상 인원 · 계좌 안내 문자열
+  - `react-hook-form` + `zodResolver`(`@hookform/resolvers/zod` — Zod 4를 지원하고 input/output 타입을 각각 추론한다). zod 스키마는 `lib/moim/schemas.ts`에 두어 T-302와 공유한다
+  - ~~`share_token`은 `crypto.randomBytes(32).toString("base64url")`로 서버에서 만든다~~ → **Node 코드로 만들지 않는다.** 마이그레이션 `moim_share_token_source`로 `public.generate_share_token()`을 만들고 `events.share_token`의 default와 before insert 트리거가 그 함수 하나를 쓴다(D2). 앱 코드에는 토큰 생성 로직이 아예 없다 — `grep -rniE "share_token|randomUUID|gen_random|base64url" app components lib`가 주석 2줄만 잡는다
+  - **`set search_path = ''`라 `gen_random_bytes`를 `extensions`로 수식해야 한다.** 수식하지 않으면 함수가 런타임에 "does not exist"로 실패한다(pgcrypto가 `extensions` 스키마에 있다)
+  - 트리거 함수는 `private.force_share_token()`에 둔다 — `public`에 SECURITY DEFINER가 아닌 함수라도 REST 표면을 늘리지 않는 편이 낫고, T-103·T-106이 이미 같은 자리를 쓴다
+  - 스키마는 DB 제약(T-101)과 값을 맞춘다: title 1~100자, capacity·expected_headcount는 null 또는 양의 정수. 어긋나면 클라이언트가 통과시키고 DB가 23514로 거부해 사용자에게 코드가 샌다
+  - `z.coerce.number()`를 쓰지 않는다 — `""`를 `0`으로 바꿔 "미입력"과 "0명"이 섞인다. 문자열을 받아 직접 null 변환한다
+  - 검증: 빈 제목 · 101자 제목 · 음수/0/소수 정원 · 모임 일시보다 늦은 응답 마감·미정 기한이 모두 한국어 오류로 막히고(경계값 100자·동일 시각은 통과), 정상 입력은 `/events/[id]`로 이동. 저장된 `share_token`이 43자 base64url이고 `+ / =`가 없다. SQL로 `share_token`을 명시해 insert해도 트리거가 덮어쓴다(실측)
   - 선행: T-202
 - [ ] **T-204 `/events/[id]` 개요** — 이벤트 요약, 인원 카운터 3개, 최신 공지 미리보기, `app/events/[id]/layout.tsx`의 탭 네비게이션 활성화
   - 선행: T-203
