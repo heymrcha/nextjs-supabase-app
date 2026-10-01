@@ -112,7 +112,7 @@ PRD 원문을 그대로 옮기면 동작하지 않는 지점이다. 각 작업 �
   - ~~`alter default privileges in schema api revoke execute on functions from anon, public;`~~ — **동작하지 않는다.** `ALTER DEFAULT PRIVILEGES`의 REVOKE는 내장 기본값인 PUBLIC EXECUTE를 깎지 못한다(2026-10-01 실증). 기본 권한 행을 만들어도 새 함수 ACL이 `NULL`로 남아 PUBLIC에 EXECUTE가 유지된다. **함수를 만들 때마다 같은 마이그레이션에서 `revoke execute ... from public, anon` 후 필요한 것만 `grant execute ... to anon`** 하는 것이 유일한 수단이다(`shrimp-rules.md` §5.3.1). T-110이 `api`에서 anon 실행 가능 함수 수를 직접 세는 것으로 그물을 대신한다
   - `revoke all on all tables in schema public from anon;`
   - 선행: T-103
-- [ ] **T-105 마이그레이션 `moim_guest_functions`** — `api` 스키마에 SECURITY DEFINER 함수 3개. 전부 `set search_path = ''` + 모든 참조를 스키마 수식
+- [x] **T-105 마이그레이션 `moim_guest_functions`** — `api` 스키마에 SECURITY DEFINER 함수 3개. 전부 `set search_path = ''` + 모든 참조를 스키마 수식
   - `api.guest_get_event(p_token text, p_guest_key uuid default null) returns jsonb` (stable)
   - `api.guest_submit_rsvp(p_token text, p_guest_key uuid, p_name text, p_status public.rsvp_status, p_note text default null) returns jsonb` — **PRD §7.3의 `returns uuid`를 `{ rsvp_id, event_id }` jsonb로 바꾼다.** 쿠키 이름이 `moim_gk_<event_id 앞 8자>`인데 Route Handler는 token만 받으므로 event_id 없이는 쿠키를 심을 수 없다. `guest_withdraw_rsvp`도 같은 이유로 `returns jsonb` — `select ... for update`로 이벤트 행을 잠가 정원 순번 경합을 막고, 토큰 · 만료 · 마감 · `guest_key` 유무 · 이름 1~20자 · 메모 200자를 **함수 안에서 다시** 검증한 뒤 upsert
   - `api.guest_withdraw_rsvp(p_token text, p_guest_key uuid) returns jsonb` — 행 삭제가 아니라 `declined` 전환(이력 보존)
@@ -183,6 +183,8 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
 
 | 10 | `alter default privileges`로 `api` 자동 공개를 막는다 | **막지 못한다.** REVOKE는 내장 기본값의 PUBLIC EXECUTE를 깎지 않는다. 프로브 함수로 두 번 실증했고, 명시적 `revoke execute ... from public, anon`만 확실히 동작한다(`shrimp-rules.md` §5.3.1) |
 | 11 | `revoke all on schema public from anon`으로 USAGE가 걷힌다 | **안 걷힌다.** `public` ACL의 `=U/pg_database_owner`(PUBLIC)를 `anon`이 상속한다. `revoke usage on schema public from public`이 필요했고, 그 부작용으로 PostgREST 접속 역할 `authenticator`도 USAGE를 잃어 명시적으로 복구했다 |
+
+| 12 | `guest_withdraw_rsvp`는 철회만 하면 된다 | 철회할 응답이 없을 때도 `EVENT_UNAVAILABLE`로 떨어뜨린다. 다른 코드를 주면 "이 토큰에 내 응답이 있는가"가 오라클이 되어 이벤트 상태를 추측할 수 있다 |
 
 추가로 알아 둘 것:
 
