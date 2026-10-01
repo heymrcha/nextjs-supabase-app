@@ -85,7 +85,6 @@ async function EventOverview({ params }: { params: Promise<{ id: string }> }) {
         eventId={event.id}
         shareToken={event.share_token}
         shareExpiresAt={event.share_expires_at}
-        startsAt={event.starts_at}
       />
 
       <section className="flex flex-col gap-3">
@@ -123,7 +122,7 @@ function CounterRow({ counts }: { counts: RsvpCounts }) {
   ];
 
   return (
-    <section className="grid grid-cols-3 gap-3">
+    <dl className="grid grid-cols-3 gap-3">
       {items.map((item) => (
         <div
           key={item.label}
@@ -133,15 +132,16 @@ function CounterRow({ counts }: { counts: RsvpCounts }) {
           <dd className="text-2xl font-bold">{item.value}</dd>
         </div>
       ))}
-    </section>
+    </dl>
   );
 }
 
 function OverviewSkeleton() {
   return (
-    <div className="flex flex-col gap-6" aria-hidden>
-      <div className="h-24 animate-pulse rounded-lg bg-muted/40" />
-      <div className="grid grid-cols-3 gap-3">
+    <div className="flex flex-col gap-6" aria-busy role="status">
+      <span className="sr-only">모임 정보를 불러오는 중입니다</span>
+      <div className="h-24 animate-pulse rounded-lg bg-muted/40" aria-hidden />
+      <div className="grid grid-cols-3 gap-3" aria-hidden>
         {[0, 1, 2].map((key) => (
           <div
             key={key}
@@ -149,7 +149,7 @@ function OverviewSkeleton() {
           />
         ))}
       </div>
-      <div className="h-24 animate-pulse rounded-lg bg-muted/40" />
+      <div className="h-24 animate-pulse rounded-lg bg-muted/40" aria-hidden />
     </div>
   );
 }

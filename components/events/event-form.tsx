@@ -14,7 +14,7 @@ import {
   type EventCreateFormValues,
   type EventCreateInput,
 } from "@/lib/moim/schemas";
-import { toDateTimeLocal } from "@/lib/moim/share-link";
+import { fromDateTimeLocal, toDateTimeLocal } from "@/lib/moim/share-link";
 import { createClient } from "@/lib/supabase/client";
 
 /** 수정 모드에서 받는 기존 값. DB 행의 모양 그대로다 */
@@ -68,6 +68,7 @@ export function EventForm({ defaults }: { defaults?: EventFormDefaults }) {
   const {
     register,
     handleSubmit,
+    reset,
     setError,
     formState: { errors, isSubmitting },
   } = useForm<EventCreateFormValues, unknown, EventCreateInput>({
@@ -91,30 +92,41 @@ export function EventForm({ defaults }: { defaults?: EventFormDefaults }) {
     const supabase = createClient();
 
     // 생성과 수정이 같은 컬럼 묶음을 쓴다. host_id만 생성에서 더 붙는다
+    //
+    // datetime-local 값은 반드시 fromDateTimeLocal로 해석한다. `new Date(값)`을 쓰면
+    // 브라우저 로컬 타임존으로 읽는데, 입력칸을 채울 때 쓰는 toDateTimeLocal은
+    // Asia/Seoul 기준이라 두 규칙이 어긋난다 — 해외 타임존 기기에서는 수정 화면을
+    // 열어 아무것도 고치지 않고 저장하기만 해도 일시가 오프셋 차이만큼 밀렸다.
     const columns = {
       title: values.title,
-      starts_at: new Date(values.startsAt).toISOString(),
+      starts_at: fromDateTimeLocal(values.startsAt),
       location: values.location,
       description: values.description,
       capacity: values.capacity,
       expected_headcount: values.expectedHeadcount,
       rsvp_closes_at: values.rsvpClosesAt
-        ? new Date(values.rsvpClosesAt).toISOString()
+        ? fromDateTimeLocal(values.rsvpClosesAt)
         : null,
       maybe_deadline: values.maybeDeadline
-        ? new Date(values.maybeDeadline).toISOString()
+        ? fromDateTimeLocal(values.maybeDeadline)
         : null,
       bank_account: values.bankAccount,
     };
 
     if (defaults) {
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from("events")
         .update(columns)
         .eq("id", defaults.id)
-        .is("deleted_at", null);
+        .is("deleted_at", null)
+        // PostgREST의 UPDATE는 매칭 0행도 오류가 아니다. 다른 탭에서 이미 삭제된
+        // 모임을 저장해도 성공으로 보이므로 반환 행을 직접 확인한다
+        .select(
+          "id, title, description, location, starts_at, capacity, expected_headcount, rsvp_closes_at, maybe_deadline, bank_account",
+        )
+        .maybeSingle();
 
-      if (error) {
+      if (error || !updated) {
         // DB 오류 코드를 그대로 노출하지 않는다(T-602)
         setError("root", {
           message: "모임을 수정하지 못했습니다. 잠시 후 다시 시도해 주세요.",
@@ -122,6 +134,9 @@ export function EventForm({ defaults }: { defaults?: EventFormDefaults }) {
         return;
       }
 
+      // 서버가 정규화한 값(trim 등)으로 폼을 되맞춘다. reset 없이 두면 RHF가 옛
+      // 입력값을 들고 있어 화면과 저장된 값이 어긋난다
+      reset(toFormValues(updated));
       toast.success("모임 정보를 수정했습니다");
       router.refresh();
       return;
@@ -165,6 +180,7 @@ export function EventForm({ defaults }: { defaults?: EventFormDefaults }) {
         <Input
           id="title"
           placeholder="예) 10월 동네 모임"
+          aria-required
           aria-invalid={Boolean(errors.title)}
           {...register("title")}
         />
@@ -179,6 +195,7 @@ export function EventForm({ defaults }: { defaults?: EventFormDefaults }) {
         <Input
           id="startsAt"
           type="datetime-local"
+          aria-required
           aria-invalid={Boolean(errors.startsAt)}
           {...register("startsAt")}
         />
@@ -311,6 +328,10 @@ export function EventForm({ defaults }: { defaults?: EventFormDefaults }) {
   );
 }
 
+/**
+ * `*`는 시각 표시일 뿐이라 `aria-hidden`으로 숨기고, 필수 여부는 입력 요소의
+ * `aria-required`로 전달한다. 둘 다 빠지면 보조기기에 필수 정보가 닿지 않는다.
+ */
 function Field({
   label,
   htmlFor,

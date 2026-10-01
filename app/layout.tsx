@@ -1,15 +1,13 @@
 import { Toaster } from "@/components/ui/sonner";
+import { getAppOrigin } from "@/lib/moim/share-link";
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import "./globals.css";
 
-const defaultUrl = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : "http://localhost:3000";
-
 export const metadata: Metadata = {
-  metadataBase: new URL(defaultUrl),
+  // origin 계산은 공유 링크와 한 규칙을 쓴다(lib/moim/share-link.ts)
+  metadataBase: new URL(getAppOrigin()),
   title: "모임",
   description: "모임 공지와 참석 집계, 비용 정산을 링크 하나로 끝냅니다",
 };

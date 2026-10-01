@@ -35,6 +35,7 @@ async function EventSettings({ params }: { params: Promise<{ id: string }> }) {
       <EventDangerZone
         eventId={event.id}
         title={event.title}
+        startsAt={event.starts_at}
         rsvpClosesAt={event.rsvp_closes_at}
         isClosed={isRsvpClosed(event.rsvp_closes_at)}
       />
@@ -44,9 +45,14 @@ async function EventSettings({ params }: { params: Promise<{ id: string }> }) {
 
 function SettingsSkeleton() {
   return (
-    <div className="flex flex-col gap-6" aria-hidden>
+    <div className="flex flex-col gap-6" aria-busy role="status">
+      <span className="sr-only">모임 설정을 불러오는 중입니다</span>
       {[0, 1, 2, 3].map((key) => (
-        <div key={key} className="h-16 animate-pulse rounded-lg bg-muted/40" />
+        <div
+          key={key}
+          className="h-16 animate-pulse rounded-lg bg-muted/40"
+          aria-hidden
+        />
       ))}
     </div>
   );

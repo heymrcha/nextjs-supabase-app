@@ -16,6 +16,11 @@
 
 import { z } from "zod";
 
+import {
+  isValidDateTimeLocal,
+  parseDateTimeLocal,
+} from "@/lib/moim/share-link";
+
 /** 빈 문자열을 null로 바꾼다. <input>은 미입력을 ""로 주지만 DB는 null을 원한다 */
 const optionalText = z
   .string()
@@ -24,15 +29,18 @@ const optionalText = z
   .nullable();
 
 /**
- * datetime-local 입력값(`2026-10-08T19:00`)을 받는다. 타임존이 없는 문자열이라
- * `new Date()`가 브라우저 로컬 타임존으로 해석한다 — 주최자가 보는 시계와 일치하므로
- * 의도한 동작이고, 저장은 timestamptz라 UTC로 정규화된다.
+ * datetime-local 입력값(`2026-10-08T19:00`)을 받는다. 타임존이 없는 문자열이므로
+ * 해석 규칙을 어딘가에서 정해야 하는데, 이 앱은 **Asia/Seoul 한 가지**로 통일한다
+ * (`lib/moim/share-link.ts`의 `parseDateTimeLocal`/`toDateTimeLocal`).
+ *
+ * `new Date(값)`을 쓰면 브라우저 로컬 타임존으로 해석되어 입력칸을 채우는 규칙과
+ * 어긋난다. 여기서도 비교에 `new Date()`를 쓰지 않는 이유다.
  */
 const dateTimeLocal = z
   .string()
   .min(1, "일시를 입력해 주세요")
   // 빈 값은 위 min이 이미 잡는다. 여기서 또 잡으면 오류 메시지가 두 개 쌓인다
-  .refine((value) => value === "" || !Number.isNaN(new Date(value).getTime()), {
+  .refine((value) => value === "" || isValidDateTimeLocal(value), {
     message: "올바른 일시를 입력해 주세요",
   });
 
@@ -40,12 +48,9 @@ const optionalDateTimeLocal = z
   .string()
   .transform((value) => (value === "" ? null : value))
   .nullable()
-  .refine(
-    (value) => value === null || !Number.isNaN(new Date(value).getTime()),
-    {
-      message: "올바른 일시를 입력해 주세요",
-    },
-  );
+  .refine((value) => value === null || isValidDateTimeLocal(value), {
+    message: "올바른 일시를 입력해 주세요",
+  });
 
 /**
  * 양의 정수 또는 미입력. `<input type="number">`가 문자열을 주므로 직접 변환한다.
@@ -82,7 +87,8 @@ export const eventCreateSchema = z
   .refine(
     (data) =>
       !data.rsvpClosesAt ||
-      new Date(data.rsvpClosesAt) <= new Date(data.startsAt),
+      parseDateTimeLocal(data.rsvpClosesAt).getTime() <=
+        parseDateTimeLocal(data.startsAt).getTime(),
     {
       message: "응답 마감은 모임 일시보다 늦을 수 없습니다",
       path: ["rsvpClosesAt"],
@@ -91,7 +97,8 @@ export const eventCreateSchema = z
   .refine(
     (data) =>
       !data.maybeDeadline ||
-      new Date(data.maybeDeadline) <= new Date(data.startsAt),
+      parseDateTimeLocal(data.maybeDeadline).getTime() <=
+        parseDateTimeLocal(data.startsAt).getTime(),
     {
       message: "미정 확정 기한은 모임 일시보다 늦을 수 없습니다",
       path: ["maybeDeadline"],

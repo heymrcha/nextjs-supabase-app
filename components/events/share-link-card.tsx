@@ -17,9 +17,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatDateTime } from "@/lib/moim/format";
 import {
   buildShareUrl,
-  defaultShareExpiry,
   fromDateTimeLocal,
   toDateTimeLocal,
 } from "@/lib/moim/share-link";
@@ -28,28 +28,37 @@ import { createClient } from "@/lib/supabase/client";
 /** Dialog에서 정확히 이 글자를 입력해야 재발급이 실행된다 */
 const CONFIRM_WORD = "재발급";
 
+/** DB 값을 입력칸이 쓰는 문자열로. null("만료 없음")은 빈 문자열이다 */
+function toExpiryInput(value: string | null): string {
+  return value ? toDateTimeLocal(value) : "";
+}
+
 export function ShareLinkCard({
   eventId,
   shareToken,
   shareExpiresAt,
-  startsAt,
 }: {
   eventId: string;
   shareToken: string;
   shareExpiresAt: string | null;
-  startsAt: string;
 }) {
   const router = useRouter();
   const [token, setToken] = useState(shareToken);
-  // null은 "만료 없음"이라는 유효한 상태다. 기본값만 모임 당일 자정으로 채운다
-  const [expiresAt, setExpiresAt] = useState<string | null>(
-    shareExpiresAt ?? defaultShareExpiry(startsAt),
-  );
+  /**
+   * null은 "만료 없음"이라는 유효한 상태이고, 여기서 기본값을 꾸며 넣지 않는다.
+   * 기본 만료(모임 당일 자정)는 insert 트리거가 DB에서 채우므로 이 값이 곧 진실이다 —
+   * 예전처럼 화면에서만 기본값을 보여 주면 실제로는 영구 유효한 링크를 두고
+   * 주최자가 "모임 다음 날 닫힌다"고 오인한다.
+   */
+  const [savedExpiresAt, setSavedExpiresAt] = useState(shareExpiresAt);
+  const [expiryInput, setExpiryInput] = useState(toExpiryInput(shareExpiresAt));
   const [confirmText, setConfirmText] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isBusy, setIsBusy] = useState(false);
+  const [isSavingExpiry, setIsSavingExpiry] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   const shareUrl = buildShareUrl(token);
+  const isExpiryDirty = expiryInput !== toExpiryInput(savedExpiresAt);
 
   const handleCopy = async () => {
     try {
@@ -61,9 +70,16 @@ export function ShareLinkCard({
     }
   };
 
-  const handleExpiryChange = async (value: string) => {
-    const nextIso = value === "" ? null : fromDateTimeLocal(value);
-    setIsBusy(true);
+  /**
+   * 만료 시각 저장. 입력칸의 `onChange`가 아니라 명시적인 동작으로만 쓴다.
+   *
+   * `type="datetime-local"`의 onChange는 연·월·일·시·분을 고칠 때마다 발생하고
+   * 편집 중간에는 값이 ""가 되는 순간이 있다. 거기에 붙여 두면 날짜를 고치는 동안
+   * `share_expires_at = null`(= 영구 링크)이 저장되고, 연속 입력의 응답 순서가
+   * 보장되지 않아 마지막에 넣은 값이 아닌 것이 최종 상태로 남을 수 있었다.
+   */
+  const saveExpiry = async (nextIso: string | null) => {
+    setIsSavingExpiry(true);
 
     const supabase = createClient();
     const { error } = await supabase
@@ -74,22 +90,23 @@ export function ShareLinkCard({
       // 화면에 없는 행이 조용히 갱신될 수 있다
       .is("deleted_at", null);
 
-    setIsBusy(false);
+    setIsSavingExpiry(false);
 
     if (error) {
       toast.error("만료 시각을 바꾸지 못했습니다");
       return;
     }
 
-    setExpiresAt(nextIso);
+    setSavedExpiresAt(nextIso);
+    setExpiryInput(toExpiryInput(nextIso));
     toast.success(
-      nextIso ? "만료 시각을 바꿨습니다" : "만료 시각을 지웠습니다",
+      nextIso ? "만료 시각을 바꿨습니다" : "만료 없음으로 바꿨습니다",
     );
     router.refresh();
   };
 
   const handleRegenerate = async () => {
-    setIsBusy(true);
+    setIsRegenerating(true);
 
     const supabase = createClient();
     // 토큰 생성은 DB 함수 하나가 책임진다(D2). 클라이언트는 값을 만들지 않는다
@@ -97,7 +114,7 @@ export function ShareLinkCard({
       p_event_id: eventId,
     });
 
-    setIsBusy(false);
+    setIsRegenerating(false);
 
     if (error || !data) {
       toast.error("링크를 재발급하지 못했습니다");
@@ -136,16 +153,39 @@ export function ShareLinkCard({
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="shareExpiresAt">만료 시각</Label>
-        <Input
-          id="shareExpiresAt"
-          type="datetime-local"
-          disabled={isBusy}
-          defaultValue={expiresAt ? toDateTimeLocal(expiresAt) : ""}
-          onChange={(event) => handleExpiryChange(event.target.value)}
-        />
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input
+            id="shareExpiresAt"
+            type="datetime-local"
+            value={expiryInput}
+            onChange={(event) => setExpiryInput(event.target.value)}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className="sm:shrink-0"
+            disabled={!isExpiryDirty || expiryInput === "" || isSavingExpiry}
+            onClick={() => saveExpiry(fromDateTimeLocal(expiryInput))}
+          >
+            {isSavingExpiry ? "저장하는 중…" : "만료 시각 저장"}
+          </Button>
+        </div>
         <p className="text-sm text-muted-foreground">
-          기본값은 모임 당일 자정입니다. 비워 두면 만료되지 않습니다.
+          {savedExpiresAt
+            ? `${formatDateTime(savedExpiresAt)}에 링크가 닫힙니다.`
+            : "현재 이 링크는 만료되지 않습니다."}
         </p>
+        {savedExpiresAt && (
+          <Button
+            type="button"
+            variant="ghost"
+            className="self-start text-sm"
+            disabled={isSavingExpiry}
+            onClick={() => saveExpiry(null)}
+          >
+            만료 없이 계속 열어 두기
+          </Button>
+        )}
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -189,7 +229,7 @@ export function ShareLinkCard({
             <Button
               type="button"
               variant="destructive"
-              disabled={confirmText !== CONFIRM_WORD || isBusy}
+              disabled={confirmText !== CONFIRM_WORD || isRegenerating}
               onClick={handleRegenerate}
             >
               재발급
