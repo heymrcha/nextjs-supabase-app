@@ -245,7 +245,13 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
   - `z.coerce.number()`를 쓰지 않는다 — `""`를 `0`으로 바꿔 "미입력"과 "0명"이 섞인다. 문자열을 받아 직접 null 변환한다
   - 검증: 빈 제목 · 101자 제목 · 음수/0/소수 정원 · 모임 일시보다 늦은 응답 마감·미정 기한이 모두 한국어 오류로 막히고(경계값 100자·동일 시각은 통과), 정상 입력은 `/events/[id]`로 이동. 저장된 `share_token`이 43자 base64url이고 `+ / =`가 없다. SQL로 `share_token`을 명시해 insert해도 트리거가 덮어쓴다(실측)
   - 선행: T-202
-- [ ] **T-204 `/events/[id]` 개요** — 이벤트 요약, 인원 카운터 3개, 최신 공지 미리보기, `app/events/[id]/layout.tsx`의 탭 네비게이션 활성화
+- [x] **T-204 `/events/[id]` 개요** — 이벤트 요약, 인원 카운터 3개, 최신 공지 미리보기, `app/events/[id]/layout.tsx`의 탭 네비게이션 활성화
+  - **`params`를 페이지에서 `await`하면 빌드가 깨진다.** cacheComponents에서 동적 `params`는 런타임 데이터라 정적 셸을 만들 수 없고 `uncached or runtime data during prerendering`으로 프리렌더가 실패한다. 페이지를 `async`로 두지 말고 **`params` promise를 그대로 `<Suspense>` 안쪽 컴포넌트로 내려 거기서 `await`**한다(`node_modules/next/dist/docs/01-app/01-getting-started/08-caching.md` 495행의 권장 패턴). Phase 0 실행 결과 #4와 같은 계열의 함정이고, `npm run dev`에서는 보이지 않는다
+  - 없는 이벤트·남의 이벤트·소프트 삭제된 이벤트를 **모두 `notFound()`로 보낸다.** RLS가 0행을 주므로 "없음"과 "권한 없음"이 자연히 같은 화면이 된다 — 구분하면 id의 존재 여부가 샌다. 세 경우의 렌더 결과가 동일함을 실측했다
+  - 인원 카운터는 T-202의 `countRsvps`를 그대로 쓴다(중복 구현 없음). T-305에서 `lib/moim/roster.ts`로 옮길지 판단한다
+  - 탭 활성 판정은 T-004의 `EventTabs`가 이미 `current === tab.segment`(정확히 일치)로 되어 있어 `startsWith` 함정에 걸리지 않는다. 5개 탭을 모두 돌며 `aria-current="page"`가 **정확히 하나**임을 실측했다
+  - 최신 공지는 `is_pinned desc, created_at desc` 1건. 0건이면 "아직 공지가 없습니다"
+  - **남은 것**: 404 화면이 Next.js 기본 영어 문구(`This page could not be found`)다. T-602에서 한국어 `not-found.tsx`로 교체한다
   - 선행: T-203
 - [ ] **T-205 공유 링크 카드** — 링크 복사, 만료 시각 설정(기본값: 모임 당일 자정), 재발급
   - 재발급은 `Dialog` + "재발급" 텍스트 입력 확인. 기존 `share_token`을 교체해 옛 링크를 즉시 무효화하고, **기존 응답은 유지**한다(PRD §11-4 현재 결정)
