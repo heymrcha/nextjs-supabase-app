@@ -14,17 +14,56 @@ import {
   type EventCreateFormValues,
   type EventCreateInput,
 } from "@/lib/moim/schemas";
+import { toDateTimeLocal } from "@/lib/moim/share-link";
 import { createClient } from "@/lib/supabase/client";
 
+/** 수정 모드에서 받는 기존 값. DB 행의 모양 그대로다 */
+export type EventFormDefaults = {
+  id: string;
+  title: string;
+  starts_at: string;
+  location: string | null;
+  description: string | null;
+  capacity: number | null;
+  expected_headcount: number | null;
+  rsvp_closes_at: string | null;
+  maybe_deadline: string | null;
+  bank_account: string | null;
+};
+
+/** DB 행을 폼이 다루는 문자열로 바꾼다. null·숫자는 전부 ""로 내린다 */
+function toFormValues(event: EventFormDefaults): EventCreateFormValues {
+  return {
+    title: event.title,
+    startsAt: toDateTimeLocal(event.starts_at),
+    location: event.location ?? "",
+    description: event.description ?? "",
+    capacity: event.capacity === null ? "" : String(event.capacity),
+    expectedHeadcount:
+      event.expected_headcount === null ? "" : String(event.expected_headcount),
+    rsvpClosesAt: event.rsvp_closes_at
+      ? toDateTimeLocal(event.rsvp_closes_at)
+      : "",
+    maybeDeadline: event.maybe_deadline
+      ? toDateTimeLocal(event.maybe_deadline)
+      : "",
+    bankAccount: event.bank_account ?? "",
+  };
+}
+
 /**
- * 이벤트 생성 폼. 주최자 쪽 쓰기는 Server Action을 쓰지 않고 클라이언트에서 직접
+ * 이벤트 생성·수정 폼. `defaults`가 있으면 수정 모드다 — 필드 정의가 두 곳으로
+ * 갈라지지 않게 한 컴포넌트가 두 경우를 모두 맡는다.
+ *
+ * 주최자 쪽 쓰기는 Server Action을 쓰지 않고 클라이언트에서 직접
  * `supabase.from(...)`을 호출하는 것이 이 저장소의 관례다(`shrimp-rules.md` §4).
  *
  * share_token은 어디에서도 다루지 않는다. 클라이언트가 값을 보내도 before insert
  * 트리거가 덮어쓰므로(D2), 폼이 토큰을 아는 척할 이유가 없다.
  */
-export function EventForm() {
+export function EventForm({ defaults }: { defaults?: EventFormDefaults }) {
   const router = useRouter();
+  const isEdit = defaults !== undefined;
 
   const {
     register,
@@ -33,21 +72,61 @@ export function EventForm() {
     formState: { errors, isSubmitting },
   } = useForm<EventCreateFormValues, unknown, EventCreateInput>({
     resolver: zodResolver(eventCreateSchema),
-    defaultValues: {
-      title: "",
-      startsAt: "",
-      location: "",
-      description: "",
-      capacity: "",
-      expectedHeadcount: "",
-      rsvpClosesAt: "",
-      maybeDeadline: "",
-      bankAccount: "",
-    },
+    defaultValues: defaults
+      ? toFormValues(defaults)
+      : {
+          title: "",
+          startsAt: "",
+          location: "",
+          description: "",
+          capacity: "",
+          expectedHeadcount: "",
+          rsvpClosesAt: "",
+          maybeDeadline: "",
+          bankAccount: "",
+        },
   });
 
   const onSubmit = async (values: EventCreateInput) => {
     const supabase = createClient();
+
+    // 생성과 수정이 같은 컬럼 묶음을 쓴다. host_id만 생성에서 더 붙는다
+    const columns = {
+      title: values.title,
+      starts_at: new Date(values.startsAt).toISOString(),
+      location: values.location,
+      description: values.description,
+      capacity: values.capacity,
+      expected_headcount: values.expectedHeadcount,
+      rsvp_closes_at: values.rsvpClosesAt
+        ? new Date(values.rsvpClosesAt).toISOString()
+        : null,
+      maybe_deadline: values.maybeDeadline
+        ? new Date(values.maybeDeadline).toISOString()
+        : null,
+      bank_account: values.bankAccount,
+    };
+
+    if (defaults) {
+      const { error } = await supabase
+        .from("events")
+        .update(columns)
+        .eq("id", defaults.id)
+        .is("deleted_at", null);
+
+      if (error) {
+        // DB 오류 코드를 그대로 노출하지 않는다(T-602)
+        setError("root", {
+          message: "모임을 수정하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+        });
+        return;
+      }
+
+      toast.success("모임 정보를 수정했습니다");
+      router.refresh();
+      return;
+    }
+
     const { data: claims } = await supabase.auth.getClaims();
     const hostId = claims?.claims?.sub;
 
@@ -60,27 +139,11 @@ export function EventForm() {
 
     const { data, error } = await supabase
       .from("events")
-      .insert({
-        host_id: hostId,
-        title: values.title,
-        starts_at: new Date(values.startsAt).toISOString(),
-        location: values.location,
-        description: values.description,
-        capacity: values.capacity,
-        expected_headcount: values.expectedHeadcount,
-        rsvp_closes_at: values.rsvpClosesAt
-          ? new Date(values.rsvpClosesAt).toISOString()
-          : null,
-        maybe_deadline: values.maybeDeadline
-          ? new Date(values.maybeDeadline).toISOString()
-          : null,
-        bank_account: values.bankAccount,
-      })
+      .insert({ host_id: hostId, ...columns })
       .select("id")
       .single();
 
     if (error || !data) {
-      // DB 오류 코드를 그대로 노출하지 않는다(T-602)
       setError("root", {
         message: "모임을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.",
       });
@@ -225,16 +288,24 @@ export function EventForm() {
 
       <div className="flex gap-3">
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "만드는 중…" : "모임 만들기"}
+          {isSubmitting
+            ? isEdit
+              ? "저장하는 중…"
+              : "만드는 중…"
+            : isEdit
+              ? "저장"
+              : "모임 만들기"}
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.push("/events")}
-          disabled={isSubmitting}
-        >
-          취소
-        </Button>
+        {!isEdit && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push("/events")}
+            disabled={isSubmitting}
+          >
+            취소
+          </Button>
+        )}
       </div>
     </form>
   );
