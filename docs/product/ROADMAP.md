@@ -222,12 +222,19 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
   - 제거 완료: `/instruments` 예외 2줄. `grep -rn instruments app components lib proxy.ts` 0건
   - 공개 경로는 이제 `/` · `/login*` · `/auth*` · `/e/*` · `/api/guest/*` **다섯 개뿐**이다. 이 `if` 하나가 전체 접근 제어라는 사실을 코드 주석과 `shrimp-rules.md` §4.1에 명시했다
   - 비로그인 실측: `/events` · `/events/new` · `/protected` · `/instruments` 모두 307 → `/auth/login`, `/e/expired` · `/e/<token>` · `/` · `/auth/login` 200, `POST /api/guest/rsvp` 501
-  - 로그인 상태의 `/events` 200은 **실측하지 않았다** — 세션을 만들 자격 증명이 없다. 이 diff는 공개 경로 조건만 줄였고 `!user`가 false면 `if` 전체가 성립하지 않으므로 로그인 경로는 영향받지 않는다. T-202 작업 중 브라우저에서 확인한다
+  - 로그인 상태의 `/events` 200은 **T-202에서 확인했다**(브라우저에 세션이 남아 있어 실측 가능했다). 목록이 정상 렌더된다
   - 로컬에서 "로그인 안 했는데 보호 페이지가 열린다"면 `.env.local`의 두 변수 누락으로 `hasEnvVars`가 falsy가 된 경우다. 이 함정은 스타터 동작 그대로 유지한다
   - 선행: T-001
-- [ ] **T-202 `/events` 대시보드** — 내 이벤트 목록(다가오는 / 지난 분리), 인원 요약(참석 / 불참 / 미정), 미수금 배지, 빈 상태 CTA
-  - 목록 조회 async 컴포넌트를 분리하고 `<Suspense fallback={<스켈레톤 />}>`로 감싼다
-  - 세션은 `getClaims()`. 여기까지 오면 `app/protected/`를 삭제할지 결정한다
+- [x] **T-202 `/events` 대시보드** — 내 이벤트 목록(다가오는 / 지난 분리), 인원 요약(참석 / 불참 / 미정), 미수금 배지, 빈 상태 CTA
+  - `EventList` async 컴포넌트를 분리하고 `<Suspense fallback={<EventListSkeleton />}>`로 감쌌다. 빌드에서 `/events`가 `◐`(Partial Prerender)로 잡힌다
+  - 인원 요약·미수금을 **중첩 select 한 번**으로 가져온다(`rsvps(status)`, `settlements(settlement_shares(amount, is_paid))`). 이벤트마다 질의를 더 보내면 N+1이 되고, 집계 뷰는 MVP 규모에서 얻을 것이 없다. 느려지면 그때 뷰로 옮긴다
+  - **`settlements`는 배열이 아니라 단일 객체 또는 null이다** — `settlements.event_id` UNIQUE(T-102) 때문에 supabase-js가 to-one으로 추론한다. 유니크 제약을 풀면 타입이 배열로 바뀐다
+  - 미수금은 `settlement_shares`에 저장된 금액을 더하기만 한다. 1인당 금액 **산출**은 T-502의 몫이고, 같은 수를 두 곳에서 구하면 대시보드와 정산 화면이 어긋난다
+  - 집계·분류는 `lib/moim/dashboard.ts`의 순수 함수로 뺐다(`countRsvps` · `toDashboardEvent` · `groupByTime`)
+  - `host_id` 조건을 쿼리에 걸지 않는다. `events_host_all` 정책이 이미 거르므로, 또 거는 것은 RLS가 동작하지 않을 때를 가정하는 셈이다
+  - **`app/protected/`를 삭제했다.** `/events`가 대체한다. 리다이렉트 목적지 5곳을 `/events`로 바꿨다(`app/auth/callback/route.ts` 2곳, `login-form` · `sign-up-form` · `update-password-form`). `grep -rn "/protected" app components lib` 0건
+  - `app/events/layout.tsx`에 nav(로그인 상태 · 테마 전환)를 추가했다 — 삭제한 `protected/layout.tsx`가 갖고 있던 것이다
+  - 검증: RLS를 `set local role authenticated` + `request.jwt.claims`로 직접 확인(주최자 2건 / 다른 uid 0건), 인원 요약·미수금이 SQL 집계와 일치, 빈 상태 CTA 확인, 소프트 삭제된 이벤트는 목록에서 빠진다
   - 선행: T-109, T-201
 - [ ] **T-203 `/events/new` 이벤트 생성 폼** — 제목 · 일시 · 장소 · 설명 · 정원 · 응답 마감 · 미정 확정 기한 · 예상 인원 · 계좌 안내 문자열
   - `react-hook-form` + `zod`(`@hookform/resolvers/zod`). zod 스키마는 `lib/moim/schemas.ts`에 두고 T-302의 서버 검증과 공유

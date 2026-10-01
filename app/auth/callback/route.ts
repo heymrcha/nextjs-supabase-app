@@ -13,9 +13,9 @@ export async function GET(request: Request) {
       const forwardedHost = request.headers.get("x-forwarded-host");
       const isLocalEnv = process.env.NODE_ENV === "development";
       if (!isLocalEnv && forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}/protected`);
+        return NextResponse.redirect(`https://${forwardedHost}/events`);
       }
-      return NextResponse.redirect(`${origin}/protected`);
+      return NextResponse.redirect(`${origin}/events`);
     }
   }
 
