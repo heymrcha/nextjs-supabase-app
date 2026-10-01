@@ -253,9 +253,14 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
   - 최신 공지는 `is_pinned desc, created_at desc` 1건. 0건이면 "아직 공지가 없습니다"
   - **남은 것**: 404 화면이 Next.js 기본 영어 문구(`This page could not be found`)다. T-602에서 한국어 `not-found.tsx`로 교체한다
   - 선행: T-203
-- [ ] **T-205 공유 링크 카드** — 링크 복사, 만료 시각 설정(기본값: 모임 당일 자정), 재발급
-  - 재발급은 `Dialog` + "재발급" 텍스트 입력 확인. 기존 `share_token`을 교체해 옛 링크를 즉시 무효화하고, **기존 응답은 유지**한다(PRD §11-4 현재 결정)
-  - 복사 성공은 `sonner` 토스트로 알린다(`alert()` 금지)
+- [x] **T-205 공유 링크 카드** — 링크 복사, 만료 시각 설정(기본값: 모임 당일 자정), 재발급
+  - 재발급은 `Dialog` + "재발급" 텍스트 입력 확인. 빈 입력과 부분 일치("재발")에서 버튼이 비활성임을 실측했다
+  - 재발급은 마이그레이션 `moim_regenerate_share_token`의 `public.regenerate_share_token(uuid)`가 한다. before insert 트리거는 update에 걸리지 않으므로 재발급 경로를 함수로 감쌌고, 토큰 생성은 T-203의 `generate_share_token()`을 그대로 쓴다(D2 — 생성과 재발급이 갈라지지 않는다)
+  - **`security definer`라 RLS를 우회하므로 함수가 호스트 확인을 직접 한다.** 헬퍼는 `public`이 아니라 `private.is_event_host`다(T-103에서 옮겼다 — 구현 가이드의 `public.is_event_host`는 더 이상 존재하지 않는다). 남의 이벤트 id로 호출하면 `FORBIDDEN`, anon REST 호출은 `42501`
+  - 링크는 **절대 URL**이어야 한다(카카오톡에 붙일 용도). `lib/moim/share-link.ts`에 모았고, 클라이언트에서는 `window.location.origin`을 먼저 쓴다 — 프리뷰 배포처럼 `VERCEL_URL`이 실제 접속 주소와 다른 환경에서 복사한 링크가 열리지 않는 것을 막는다
+  - 만료 기본값 "모임 당일 자정"은 **Asia/Seoul 기준으로 날짜를 뽑은 뒤 `+09:00`을 붙여** 해석시킨다. 서버는 UTC로 돌기 때문에 `new Date(startsAt).getDate()`를 쓰면 전날이 나올 수 있다. 입력(`datetime-local`)도 같은 방식으로 KST↔UTC를 오간다
+  - 복사 성공은 `sonner` 토스트(`alert()` 금지). clipboard API는 보안 컨텍스트에서만 동작하므로 실패 시 토스트로 대체 안내를 띄운다
+  - 검증: 복사 토스트 확인, 재발급 후 옛 토큰은 `EVENT_UNAVAILABLE`·새 토큰은 정상이며 **응답 3건과 guest_key가 그대로**다. 재발급 전 응답자가 쿠키(guest_key)로 **본인 응답을 그대로 찾는다** — D1에서 쿠키 이름을 token 기반으로 하지 않은 이득이 여기서 실증된다. 만료 시각 `2026-10-19 18:30 KST` 입력이 `09:30 UTC`로 정확히 저장된다. 네이티브 `alert`/`confirm`/`prompt` 0건
   - 선행: T-204
 - [ ] **T-206 `/events/[id]/settings`** — 이벤트 수정, 응답 즉시 마감, 삭제
   - 삭제는 `Dialog`에 **이벤트 제목을 그대로 재입력**해야 버튼이 활성화되는 방식. `deleted_at` 소프트 삭제

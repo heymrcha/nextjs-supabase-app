@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { CalendarIcon, MapPinIcon, PinIcon, UsersIcon } from "lucide-react";
 
+import { ShareLinkCard } from "@/components/events/share-link-card";
 import { Badge } from "@/components/ui/badge";
 import { countRsvps, type RsvpCounts } from "@/lib/moim/dashboard";
 import { formatDateTime } from "@/lib/moim/format";
@@ -14,7 +15,7 @@ async function EventOverview({ params }: { params: Promise<{ id: string }> }) {
   const { data: event } = await supabase
     .from("events")
     .select(
-      "id, title, description, location, starts_at, capacity, expected_headcount, rsvp_closes_at, maybe_deadline, rsvps(status)",
+      "id, title, description, location, starts_at, capacity, expected_headcount, rsvp_closes_at, maybe_deadline, share_token, share_expires_at, rsvps(status)",
     )
     .eq("id", eventId)
     .is("deleted_at", null)
@@ -79,6 +80,13 @@ async function EventOverview({ params }: { params: Promise<{ id: string }> }) {
       </section>
 
       <CounterRow counts={counts} />
+
+      <ShareLinkCard
+        eventId={event.id}
+        shareToken={event.share_token}
+        shareExpiresAt={event.share_expires_at}
+        startsAt={event.starts_at}
+      />
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-muted-foreground">최신 공지</h2>
