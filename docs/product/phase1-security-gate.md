@@ -147,3 +147,35 @@ select p.proname, p.proacl::text,
        has_function_privilege('anon', p.oid, 'execute') as anon_exec
 from pg_proc p where p.pronamespace = 'api'::regnamespace order by 1;
 ```
+
+---
+
+## 수락된 advisor 예외 (2026-10-01 갱신)
+
+T-110 시점에는 `get_advisors(security)` 경고가 "설계상 의도된 3건 + 운영 설정 1건"이었다. Phase 2 이후 함수가 늘어 목록이 바뀌었으므로, **무엇을 왜 수락하는지** 여기에 못 박는다. 아래 목록에 없는 경고가 새로 뜨면 수락된 상태가 아니며, T-604에서 그대로 통과시키지 않는다.
+
+| 경고                                                           | 대상                                                                      | 수락 이유                                                                                                                                                                                                                                                                                                                                |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `anon_security_definer_function_executable` (WARN ×3)          | `api.guest_get_event`, `api.guest_submit_rsvp`, `api.guest_withdraw_rsvp` | **게스트 출입구 그 자체.** 가입 없는 응답이 제품의 전제이고, `anon`이 호출할 수 있는 함수는 이 3개뿐이다. 함수 내부에서 토큰·만료·소프트 삭제를 전부 확인하고 타인의 `note`·`guest_key`를 payload에서 제외한다.                                                                                                                          |
+| `authenticated_security_definer_function_executable` (WARN ×1) | `public.regenerate_share_token(uuid)`                                     | 재발급은 `update`에 트리거가 걸리지 않아 **DB 함수로 감쌀 수밖에 없고**(D2), 클라이언트가 RPC로 부르므로 `public`에 있어야 한다. 권한 우회는 없다 — 함수가 `private.is_event_host()`로 호스트를 직접 확인하고 `search_path = ''`를 잠근다. 호스트가 아니면 `FORBIDDEN`, 없거나 삭제된 모임이면 `EVENT_UNAVAILABLE`로 존재 여부를 숨긴다. |
+| `rls_enabled_no_policy` (INFO ×1)                              | `private.guest_rsvp_calls`                                                | 의도. 레이트 리밋 카운터는 `security definer` 함수 내부에서만 갱신되고 `private` 스키마라 REST 표면이 없다. 정책 부재 = 직접 접근 전면 거부.                                                                                                                                                                                             |
+| `auth_leaked_password_protection` (WARN ×1)                    | Auth 설정                                                                 | 대시보드 설정이며 코드로 해결되지 않는다. 실사용 전 켠다(T-604).                                                                                                                                                                                                                                                                         |
+
+### 다른 선택지를 남겨 두는 이유
+
+`regenerate_share_token`은 Route Handler를 거치게 바꿔 함수를 `private`로 내릴 수 있다. 지금은 주최자 쓰기를 전부 브라우저에서 직접 호출하는 저장소 관례(`shrimp-rules.md` §4)와 어긋나므로 하지 않는다. 주최자 쓰기를 Server Action/Route Handler로 옮기는 날 함께 처리한다.
+
+### `events` 컬럼 권한 (2026-10-01 추가)
+
+`authenticated`는 더 이상 `events`에 **테이블 단위 UPDATE를 갖지 않는다.** `share_token`을 뺀 컬럼 목록에만 UPDATE가 있다(`moim_lock_share_token_and_text_limits`). D2의 "클라이언트가 정할 수 없는 값"을 권한으로 실제로 막은 것이며, 그 전에는 주최자가 `PATCH /rest/v1/events`로 추측 가능한 토큰을 직접 넣을 수 있었다.
+
+**`events`에 컬럼을 추가하면 그 마이그레이션에서 `grant update (새 컬럼)`도 함께 해야 한다.** 빠뜨리면 해당 컬럼 수정이 42501로 실패한다(조용히 틀리지는 않는다).
+
+확인 쿼리:
+
+```sql
+select string_agg(column_name, ', ' order by column_name)
+from information_schema.column_privileges
+where table_schema = 'public' and table_name = 'events'
+  and grantee = 'authenticated' and privilege_type = 'UPDATE';
+```
