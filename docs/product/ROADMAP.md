@@ -2,7 +2,7 @@
 
 > 기준 문서: [`docs/product/moim-mvp-prd-alt.md`](./docs/product/moim-mvp-prd-alt.md) (확정된 단일 기준)
 > 대상 리포지토리: `nextjs-supabase-app` · Next.js 16 App Router / Supabase / Tailwind v3.4 / shadcn-ui new-york
-> 최종 갱신: 2026-09-30
+> 최종 갱신: 2026-10-01
 
 주최자가 단발 모임의 **공지 · 참석 집계 · 비용 정산**을 링크 하나로 끝내게 한다. 참여자는 가입하지 않는다.
 
@@ -18,6 +18,7 @@
 - 세션 확인은 항상 `supabase.auth.getClaims()`. 라우트 보호는 `middleware.ts`가 아니라 루트 `proxy.ts` → `lib/supabase/proxy.ts`.
 - 확인 UI는 shadcn `Dialog` + 텍스트 입력. 네이티브 `confirm()` / `alert()` / `prompt()` 금지(브라우저 자동화가 멈춘다).
 - `any` 금지. 모르면 `unknown` + 타입 가드. Tailwind v4 문법(`@import "tailwindcss"`, `@theme`) 금지.
+- **모든 화면이 모바일 퍼스트다.** 기본 스타일이 모바일이고 `sm:`·`md:`로 확장한다. 공통 컨테이너(`app/e/layout.tsx`, `app/events/layout.tsx`)가 거터와 여백을 책임지므로 페이지에서 다시 `px-*`를 걸지 않는다. 좁은 폭 기준은 375px. 규칙은 `shrimp-rules.md` §7.4.1.
 
 ### PRD 대비 반영된 수정 사항 4건
 
@@ -36,20 +37,20 @@ PRD 원문을 그대로 옮기면 동작하지 않는 지점이다. 각 작업 �
 
 목표: 코드베이스에서 스타터 흔적을 지우고, 이후 모든 단계가 기대는 디렉터리 · 의존성 · 타입 골격을 세운다. 이 단계에는 DB 작업이 없다.
 
-- [ ] **T-001 스타터 잔여물 제거**
+- [x] **T-001 스타터 잔여물 제거**
   - 삭제: `components/tutorial/`(5개 파일), `components/deploy-button.tsx`, `components/hero.tsx`, `components/next-logo.tsx`, `components/supabase-logo.tsx`, `app/instruments/`
   - `app/page.tsx`가 `Hero`를 참조하므로 함께 수정한다 — 로그인 전에는 서비스 소개 + 로그인 CTA, 로그인 상태면 `/events`로 유도하는 최소 랜딩으로 대체
   - `app/protected/`는 남겨 두되 이후 `/events`로 대체되면 T-202에서 제거 판단
   - `lib/supabase/proxy.ts`의 `/instruments` 예외 2줄 제거는 T-201에서 공개 경로 변경과 함께 처리한다(같은 `if` 블록이므로 충돌 방지)
-- [ ] **T-002 폼 의존성 설치** — `npm i react-hook-form zod @hookform/resolvers`. 현재 `package.json`에 3개 모두 없다. `docs/guides/forms-react-hook-form.md` 패턴을 따른다
-- [ ] **T-003 shadcn 컴포넌트 추가** — `npx shadcn@latest add dialog tabs textarea select sonner table separator`. `badge`, `card`, `input`, `label`, `button`, `checkbox`, `dropdown-menu`는 이미 있으므로 다시 추가하지 않는다. `sonner`의 `<Toaster />`를 `app/layout.tsx`에 1회 배치
+- [x] **T-002 폼 의존성 설치** — `npm i react-hook-form zod @hookform/resolvers`. 현재 `package.json`에 3개 모두 없다. `docs/guides/forms-react-hook-form.md` 패턴을 따른다
+- [x] **T-003 shadcn 컴포넌트 추가** — `npx shadcn@latest add dialog tabs textarea select sonner table separator`. `badge`, `card`, `input`, `label`, `button`, `checkbox`, `dropdown-menu`는 이미 있으므로 다시 추가하지 않는다. `sonner`의 `<Toaster />`를 `app/layout.tsx`에 1회 배치
   - 선행: T-001
-- [ ] **T-004 라우트 골격 생성 (빈 껍데기)** — 아래 경로에 자리만 잡는다. 데이터 연동 없음, "준비 중" 수준의 마크업
+- [x] **T-004 라우트 골격 생성 (빈 껍데기)** — 아래 경로에 자리만 잡는다. 데이터 연동 없음, "준비 중" 수준의 마크업
   - 주최자: `app/events/page.tsx`, `app/events/new/page.tsx`, `app/events/[id]/page.tsx`, `app/events/[id]/responses/page.tsx`, `app/events/[id]/notices/page.tsx`, `app/events/[id]/settlement/page.tsx`, `app/events/[id]/settings/page.tsx`, 공통 `app/events/[id]/layout.tsx`(탭 네비게이션)
   - 게스트: `app/e/[token]/page.tsx`, `app/e/[token]/respond/page.tsx`, `app/e/expired/page.tsx`
   - Route Handler: `app/api/guest/rsvp/route.ts` (501 반환 스텁)
   - 선행: T-001
-- [ ] **T-005 도메인 타입 · 유틸 골격**
+- [x] **T-005 도메인 타입 · 유틸 골격**
   - `types/moim.ts`: `RsvpStatus`, `GuestEventPayload`, `SettlementSummary` 등 화면이 소비하는 뷰 타입. DB 생성 타입(T-109)과 역할을 분리한다
   - `lib/moim/` 디렉터리: `format.ts`(원화 · 일시 포맷), `guest-cookie.ts`(쿠키 이름 규칙만 먼저 상수화)
   - `hooks/`, `types/` 디렉터리는 현재 없으므로 여기서 새로 만든다(`docs/guides/project-structure.md`의 목표 구조와 일치시킴)
@@ -65,6 +66,24 @@ PRD 원문을 그대로 옮기면 동작하지 않는 지점이다. 각 작업 �
 - `npm run check-all` 통과, `npm run build` 성공
 - `npm run dev` 후 `/events`, `/events/new`, `/e/expired`를 브라우저에서 직접 열어 빈 페이지 렌더 확인
 - `curl -i -X POST http://localhost:3000/api/guest/rsvp` → 501 스텁 응답
+
+### Phase 0 실행 결과 — 계획과 달라진 5건 (2026-10-01)
+
+실제로 돌려 보니 위 계획이 사실과 어긋난 지점들이다. 이후 단계가 잘못된 전제로 작동하지 않게 여기 남긴다.
+
+| #   | 계획                                                   | 실제                                                                                                                                                                                                                  |
+| --- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | T-001은 `app/page.tsx`만 고치면 된다                   | `app/protected/layout.tsx`(`DeployButton`)와 `app/protected/page.tsx`(`FetchDataSteps`)도 삭제 대상을 import하고 있어 함께 고쳐야 빌드가 통과한다. 두 파일은 삭제하지 않고 최소 수정만 했다(T-202에서 제거 판단)      |
+| 2   | proxy 공개 경로 변경은 T-201에서                       | 게스트 경로 2줄(`/e/`, `/api/guest/`)만 Phase 0으로 **선반영**했다(커밋 `86bb569`). 그러지 않으면 이 단계의 검증 기준(게스트 라우트 200, rsvp 501)이 성립하지 않는다. T-201에 남은 일은 `/instruments` 2줄 제거뿐이다 |
+| 3   | T-005에서 `hooks/` 디렉터리를 만든다                   | **만들지 않았다.** 빈 디렉터리는 git에 남지 않고 커밋할 내용도 없다. `components.json`의 `"hooks": "@/hooks"` alias는 이미 있다. 첫 훅이 생기는 시점(Phase 3 예상)에 만든다                                           |
+| 4   | `cacheComponents` 대응은 서버 컴포넌트 `await`만       | **URL을 읽는 클라이언트 훅도 `<Suspense>` 경계를 요구한다.** `usePathname()`을 쓰는 `EventTabs`를 감싸지 않아 `/events/[id]/notices` 프리렌더가 `CLIENT_HOOK_DYNAMIC`으로 실패했다                                    |
+| 5   | T-105의 `guest_submit_rsvp`는 `returns uuid`(PRD §7.3) | **`{ rsvp_id, event_id }` jsonb로 바꾼다.** 쿠키 이름이 `moim_gk_<event_id 앞 8자>`인데 Route Handler는 token만 받으므로, event_id 없이는 쿠키를 심을 수 없다. `types/moim.ts`의 `GuestRsvpResult`가 이 형태다        |
+
+추가로 알아 둘 것:
+
+- **`npx shadcn@latest add`는 Tailwind v4 기준 컴포넌트를 내려준다.** 생성 직후 `import { cn } from "cn"`(깨진 경로), `outline-hidden`·`rounded-xs`·`shadow-xs`·`field-sizing-content`, `*:` 자식 변형, `var(--…)`를 색으로 쓰는 코드를 v3 형태로 고쳐야 한다. 절차는 `shrimp-rules.md` §7.5.1에 있다.
+- 라우트를 **삭제**한 뒤 `typecheck`가 `.next/dev/types/validator.ts`의 낡은 생성물 때문에 실패할 수 있다. `next build`는 `.next/types`만 재생성하므로 해당 파일을 직접 지운다.
+- `field-sizing-content` 제거로 `Textarea`의 자동 높이 조절 기능이 없다. 필요해지면(T-401 공지 작성) JS로 구현한다.
 
 ---
 
@@ -95,8 +114,8 @@ PRD 원문을 그대로 옮기면 동작하지 않는 지점이다. 각 작업 �
   - 선행: T-103
 - [ ] **T-105 마이그레이션 `moim_guest_functions`** — `api` 스키마에 SECURITY DEFINER 함수 3개. 전부 `set search_path = ''` + 모든 참조를 스키마 수식
   - `api.guest_get_event(p_token text, p_guest_key uuid default null) returns jsonb` (stable)
-  - `api.guest_submit_rsvp(p_token text, p_guest_key uuid, p_name text, p_status public.rsvp_status, p_note text default null) returns uuid` — `select ... for update`로 이벤트 행을 잠가 정원 순번 경합을 막고, 토큰 · 만료 · 마감 · `guest_key` 유무 · 이름 1~20자 · 메모 200자를 **함수 안에서 다시** 검증한 뒤 upsert
-  - `api.guest_withdraw_rsvp(p_token text, p_guest_key uuid) returns void` — 행 삭제가 아니라 `declined` 전환(이력 보존)
+  - `api.guest_submit_rsvp(p_token text, p_guest_key uuid, p_name text, p_status public.rsvp_status, p_note text default null) returns jsonb` — **PRD §7.3의 `returns uuid`를 `{ rsvp_id, event_id }` jsonb로 바꾼다.** 쿠키 이름이 `moim_gk_<event_id 앞 8자>`인데 Route Handler는 token만 받으므로 event_id 없이는 쿠키를 심을 수 없다. `guest_withdraw_rsvp`도 같은 이유로 `returns jsonb` — `select ... for update`로 이벤트 행을 잠가 정원 순번 경합을 막고, 토큰 · 만료 · 마감 · `guest_key` 유무 · 이름 1~20자 · 메모 200자를 **함수 안에서 다시** 검증한 뒤 upsert
+  - `api.guest_withdraw_rsvp(p_token text, p_guest_key uuid) returns jsonb` — 행 삭제가 아니라 `declined` 전환(이력 보존)
   - **게스트 payload에서 `r.note`를 제거한다** ← PRD §7.3은 `'note', r.note`를 넣지만 같은 문서 §8은 "공개 범위를 넘는다"며 이력을 게스트에 숨긴다. 메모는 참여자가 사적인 내용을 적을 수 있는 자유 입력이므로 **주최자 전용**으로 확정한다. `guest_get_event`의 `rsvps` 배열은 `id` / `display_name` / `status` / `responded_at` / `is_mine`만 담고, `note`는 `is_mine = true`인 본인 행에만 포함시킨다(본인이 쓴 메모를 수정 폼에 프리필하기 위함). `guest_key`는 어떤 경우에도 payload에 넣지 않는다
   - 실패는 존재하지 않음 / 삭제됨 / 만료됨을 구분하지 않고 모두 `EVENT_UNAVAILABLE`(`errcode = 'P0002'`). 마감은 `RSVP_CLOSED`(`P0001`)
   - 마지막에 함수 3개에만 `grant execute ... to anon` (T-104의 `revoke` 이후에 실행되어야 한다)
@@ -157,7 +176,7 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
 목표: 로그인한 주최자가 이벤트를 만들고, 공유 링크를 발급해 카카오톡에 붙일 수 있는 상태까지. 게스트 화면은 아직 없다.
 
 - [ ] **T-201 `proxy.ts` 공개 경로 정리** — `lib/supabase/proxy.ts`의 접근 제어 `if`를 수정
-  - 추가: `!request.nextUrl.pathname.startsWith("/e/")`, `!request.nextUrl.pathname.startsWith("/api/guest/")`
+  - ~~추가: `!request.nextUrl.pathname.startsWith("/e/")`, `!request.nextUrl.pathname.startsWith("/api/guest/")`~~ → **Phase 0에서 선반영 완료**(커밋 `86bb569`). 다시 넣지 않는다
   - 제거: `/instruments` 예외 2줄(T-001에서 페이지를 삭제했으므로)
   - 로컬에서 "로그인 안 했는데 보호 페이지가 열린다"면 `.env.local`의 두 변수 누락으로 `hasEnvVars`가 falsy가 된 경우다. 이 함정은 스타터 동작 그대로 유지한다
   - 선행: T-001
@@ -214,11 +233,13 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
   - 공지(고정 우선) + 일시 · 장소 + 내 응답 카드 + 명단 3탭 + (공개 시) 내 분담금
   - `EVENT_UNAVAILABLE`이면 `/e/expired`로. 이벤트 존재 여부조차 노출하지 않는다
   - 데이터 읽기 async 컴포넌트 분리 + `<Suspense>`. 모든 출력은 React 기본 이스케이프에 맡기고 `dangerouslySetInnerHTML`을 쓰지 않는다
+  - **모바일 퍼스트로 만든다(T-603에서 고치는 것이 아니다).** 375px에서 가로 스크롤이 없어야 하고, 명단 3탭이 넘치면 줄바꿈이 아니라 가로 스크롤로 흘린다. 컨테이너는 `app/e/layout.tsx`가 이미 잡아 뒀다
   - 선행: T-108, T-302
 - [ ] **T-304 `/e/[token]/respond` 응답 폼** — 이름 + 참석 / 불참 / 미정 + 메모(200자)
   - 쿠키가 있으면 기존 값 프리필(본인 `note` 포함), 없으면 신규 입력
   - 쿠키 삭제 후 같은 이름 재응답: "동일 이름 응답이 있습니다. 새 응답으로 추가할까요?" 선택지를 `Dialog`로 제시(병합은 주최자만)
   - 응답 마감 후: 폼 대신 "응답이 마감되었습니다" 안내(읽기는 가능)
+  - **모바일 퍼스트.** 입력 필드와 제출 버튼의 터치 영역을 최소 44px로 두고, 375px에서 한 손으로 끝까지 제출되는지 확인한다
   - 선행: T-303
 - [ ] **T-305 명단 표시 규칙** — 게스트 · 주최자 화면이 공유하는 표시 로직을 `lib/moim/roster.ts`에 모은다
   - 동명이인: 이름 중복 허용, 응답 순서로 `김민수`, `김민수 (2)`
@@ -327,7 +348,7 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
   - 선행: Phase 1~5 전부
 - [ ] **T-602 한국어 문구 · 빈 상태 점검** — 모든 빈 상태 · 오류 · 확인 문구를 한국어로 통일. DB 오류 코드가 그대로 사용자에게 보이지 않는지 확인. 날짜 · 금액 포맷 일관성(`lib/moim/format.ts` 경유)
   - 선행: T-601
-- [ ] **T-603 반응형 · 접근성 · 다크모드** — 게스트 페이지는 카카오톡 인앱 브라우저에서 열리므로 모바일 폭이 기본이다. 탭 · Dialog의 키보드 조작, 포커스 이동, 대비를 확인하고 다크모드(`next-themes`)에서 깨지는 곳을 잡는다
+- [ ] **T-603 반응형 · 접근성 · 다크모드 검증** — 모바일 퍼스트는 Phase 0에서 구조를 잡고 T-303·T-304에서 구현한다. **여기서는 처음 적용하는 것이 아니라 전 화면을 훑어 확인한다**(375px 가로 스크롤 0, 터치 영역 44px, 넘치는 요소의 가로 스크롤 처리). 그 위에 탭 · Dialog의 키보드 조작, 포커스 이동, 대비를 확인하고 다크모드(`next-themes`)에서 깨지는 곳을 잡는다
   - 선행: T-601
 - [ ] **T-604 보안 재점검 · 최종 검사** — 스키마가 Phase 1 이후 바뀌었을 수 있으므로 `get_advisors`를 다시 돌려 경고 0건을 재확인하고, `anon` 직접 접근 실패도 다시 확인. `types/database.ts` 재생성 후 타입 검사
   - 선행: T-602, T-603

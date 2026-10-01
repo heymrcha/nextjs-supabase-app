@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 성격
 
-Supabase 공식 `with-supabase` 스타터(Create Next App)에서 출발한 **연습용 토이 프로젝트**입니다. 스타터의 튜토리얼 컴포넌트(`components/tutorial/`, `deploy-button`, `hero` 등)가 아직 남아 있으며, 이후 MVP로 전환할 예정입니다. 실험 비용을 낮추는 쪽으로 판단하세요 — 예를 들어 Tailwind는 v4 마이그레이션 없이 **v3.4에 머무르기로 결정**했습니다(토큰·작업량 절약 목적). 문서에 v4 문법(`@import "tailwindcss"`, `@theme`)을 도입하지 마세요.
+Supabase 공식 `with-supabase` 스타터(Create Next App)에서 출발한 **연습용 토이 프로젝트**입니다. 스타터의 튜토리얼 컴포넌트는 2026-10-01(ROADMAP T-001)에 제거했고, **모임 이벤트 관리 MVP**로 전환 중입니다(`docs/product/ROADMAP.md`가 진행 상태를 가집니다). 실험 비용을 낮추는 쪽으로 판단하세요 — 예를 들어 Tailwind는 v4 마이그레이션 없이 **v3.4에 머무르기로 결정**했습니다(토큰·작업량 절약 목적). 문서에 v4 문법(`@import "tailwindcss"`, `@theme`)을 도입하지 마세요.
 
 ## 명령어
 
@@ -52,7 +52,7 @@ pre-commit이 실패하면 커밋이 만들어지지 않습니다. `any` 사용,
 
 ### Cache Components 모드
 
-`next.config.ts`에 `cacheComponents: true`가 켜져 있습니다. 그래서 데이터를 읽는 서버 컴포넌트(`app/protected/page.tsx`, `app/instruments/page.tsx`)는 **페이지 컴포넌트가 직접 `await`하지 않고, 내부 async 컴포넌트로 분리해 `<Suspense>`로 감쌉니다.** 이 패턴을 따르지 않으면 빌드 시 프리렌더 오류가 납니다.
+`next.config.ts`에 `cacheComponents: true`가 켜져 있습니다. 그래서 데이터를 읽는 서버 컴포넌트(`app/page.tsx`의 `PrimaryCta`, `app/protected/page.tsx`의 `UserDetails`)는 **페이지 컴포넌트가 직접 `await`하지 않고, 내부 async 컴포넌트로 분리해 `<Suspense>`로 감쌉니다.** 이 패턴을 따르지 않으면 빌드 시 프리렌더 오류가 납니다. 서버 `await`만의 문제가 아니라 **`usePathname()`처럼 URL을 읽는 클라이언트 훅도 같은 경계가 필요합니다**(`CLIENT_HOOK_DYNAMIC`). 이 오류는 `npm run dev`에서는 보이지 않고 `npm run build`에서만 드러납니다.
 
 ### 인증 흐름
 

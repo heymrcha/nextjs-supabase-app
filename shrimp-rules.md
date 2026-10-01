@@ -59,7 +59,7 @@ AI 에이전트 전용 작업 규칙. 이 저장소에서만 통하는 제약과
 | 제품 문서                     | `docs/product/`                               |
 | 스택 가이드                   | `docs/guides/`                                |
 
-- `hooks/`, `types/`, `supabase/` 디렉터리는 **현재 존재하지 않는다.** 처음 필요할 때 만든다.
+- `types/`(`moim.ts`)와 `lib/moim/`는 2026-10-01 T-005에서 생겼다. `hooks/`와 `supabase/`는 **아직 없다** — 처음 필요할 때 만든다(빈 디렉터리는 git에 남지 않으므로 미리 만들지 않는다).
 - `docs/guides/project-structure.md`는 **목표 구조**이며 현재 트리와 다르다. 그 문서에 적힌 디렉터리가 있다고 가정하지 않는다.
 - `src/` 디렉터리를 만들지 않는다. `tsconfig.json`의 `paths`는 `@/*` → `./*` 이므로 루트 기준이다.
 
@@ -71,7 +71,7 @@ AI 에이전트 전용 작업 규칙. 이 저장소에서만 통하는 제약과
 
 - 루트 진입점은 `proxy.ts`이고 실제 로직은 `lib/supabase/proxy.ts`의 `updateSession()`이다.
 - **`middleware.ts`를 만들지 않는다.** Next.js 16에서 이 프로젝트의 규약은 `proxy.ts`다.
-- 접근 제어는 `lib/supabase/proxy.ts`의 **`if` 문 하나**가 전부다. 현재 공개 경로는 `/`, `/login*`, `/auth*`, `/instruments`, `/instruments/*`이며 **그 외 전부 `/auth/login`으로 리다이렉트**된다.
+- 접근 제어는 `lib/supabase/proxy.ts`의 **`if` 문 하나**가 전부다. 현재 공개 경로는 `/`, `/login*`, `/auth*`, `/e/*`, `/api/guest/*`, 그리고 사문이 된 `/instruments*`(T-201에서 제거)이며 **그 외 전부 `/auth/login`으로 리다이렉트**된다.
 
 공개 경로 추가 예시 — 해야 하는 것:
 
@@ -81,8 +81,8 @@ if (
   !user &&
   !request.nextUrl.pathname.startsWith("/login") &&
   !request.nextUrl.pathname.startsWith("/auth") &&
-  !request.nextUrl.pathname.startsWith("/e/") && // 추가
-  !request.nextUrl.pathname.startsWith("/api/guest/") // 추가
+  !request.nextUrl.pathname.startsWith("/e/") && // 이미 반영됨
+  !request.nextUrl.pathname.startsWith("/api/guest/") // 이미 반영됨
 ) {
 ```
 
@@ -95,7 +95,7 @@ if (
 
 `next.config.ts`에 `cacheComponents: true`가 켜져 있다. 데이터를 읽는 서버 컴포넌트는 페이지에서 직접 `await` 하면 **빌드 시 프리렌더 오류**가 난다.
 
-해야 하는 것 (`app/instruments/page.tsx`가 기준 구현):
+해야 하는 것 (`app/page.tsx`의 `PrimaryCta`가 기준 구현):
 
 ```tsx
 async function EventList() {
@@ -122,6 +122,17 @@ export default async function Page() {
   return <pre>{JSON.stringify(data)}</pre>;
 }
 ```
+
+**서버 `await`만의 문제가 아니다 — URL을 읽는 클라이언트 훅도 `<Suspense>` 경계를 요구한다.** `usePathname()`·`useSearchParams()`를 쓰는 클라이언트 컴포넌트를 감싸지 않으면 `CLIENT_HOOK_DYNAMIC` 오류로 프리렌더가 막힌다(`app/events/[id]/layout.tsx`의 `EventTabs`가 그 예다).
+
+```tsx
+// layout은 서버 컴포넌트로 유지하고, URL을 읽는 쪽만 감싼다
+<Suspense fallback={<div className="h-10 border-b" />}>
+  <EventTabs /> {/* "use client" + usePathname() */}
+</Suspense>
+```
+
+이 오류는 해당 라우트를 프리렌더하는 **빌드 때만** 드러난다. `npm run dev`에서는 보이지 않으므로 `npm run build`를 돌리기 전에는 통과했다고 판단하지 않는다.
 
 ### 4.3 `node_modules/next/dist/docs/`
 
@@ -200,7 +211,7 @@ Next.js 16은 학습 데이터와 API가 다를 수 있다. 라우팅·캐싱·`
 ### 7.2 폼
 
 - 기존 인증 폼은 **Server Action을 쓰지 않는다.** 클라이언트 컴포넌트에서 `supabase.auth.*`를 직접 호출하고 `router.push`로 이동한다. 새 인증 관련 폼도 이 패턴을 따른다.
-- 신규 도메인 폼은 `react-hook-form` + `zod` + `@hookform/resolvers`를 쓴다. **세 패키지 모두 미설치**이므로 먼저 설치한다. 패턴은 `docs/guides/forms-react-hook-form.md`를 본다.
+- 신규 도메인 폼은 `react-hook-form` + `zod` + `@hookform/resolvers`를 쓴다. 세 패키지는 2026-10-01 T-002에서 설치됐다(zod는 4.x). 패턴은 `docs/guides/forms-react-hook-form.md`를 본다.
 - zod 스키마는 `lib/moim/schemas.ts`에 두고 클라이언트 검증과 서버 검증이 공유한다.
 
 ### 7.3 React
@@ -216,11 +227,57 @@ Next.js 16은 학습 데이터와 API가 다를 수 있다. 라우팅·캐싱·`
 - 다크모드는 `next-themes` `class` 전략이다. 다크 대응은 `dark:` 프리픽스로 한다.
 - `components.json`의 `tailwind.config`가 빈 문자열이지만 실제 설정은 `tailwind.config.ts`다. 이 빈 값을 "설정이 없다"고 해석하지 않는다.
 
+#### 7.4.1 모바일 퍼스트 (게스트 · 주최자 양쪽)
+
+**모든 화면이 모바일 퍼스트다.** 게스트 화면은 카카오톡 인앱 브라우저에서 열리고, 주최자도 카카오톡에서 링크를 복사해 붙이는 흐름이라 모바일에서 모임을 만드는 경우가 흔하다.
+
+- **기본 스타일이 모바일이고 `sm:`·`md:`로 넓은 화면을 확장한다.** 데스크톱 폭을 먼저 잡고 `max-sm:`으로 좁히지 않는다. 이 방향을 뒤집으면 좁은 폭이 예외 취급을 받아 깨진 채로 남는다.
+- 공통 컨테이너가 이미 좌우 거터와 세로 여백을 책임진다. 페이지에서 다시 `px-*`를 걸지 않는다.
+
+  | 경로            | 레이아웃                | 컨테이너                                                      |
+  | --------------- | ----------------------- | ------------------------------------------------------------- |
+  | `app/e/**`      | `app/e/layout.tsx`      | `max-w-screen-sm`, `px-4 py-6` → `sm:px-6 sm:py-10`. nav 없음 |
+  | `app/events/**` | `app/events/layout.tsx` | `max-w-5xl`, 같은 거터 규칙                                   |
+
+- **높이는 `min-h-svh`를 쓴다.** `min-h-screen`(=`100vh`)은 모바일 브라우저의 주소창이 접힐 때 실제 보이는 높이와 어긋나 하단이 잘린다.
+- **누르는 요소는 최소 44px 높이를 확보한다**(`min-h-11`). shadcn 기본 `Button`은 충족하지만, 직접 만든 링크·토글은 그렇지 않다.
+- **좁은 폭에서 넘치는 것은 줄바꿈이 아니라 가로 스크롤로 흘린다.** 탭 줄이 두 줄이 되면 레이아웃 높이가 변해 더 나쁘다(`components/events/event-tabs.tsx`가 기준: `overflow-x-auto` + `shrink-0` + `whitespace-nowrap`, `-mx-4 px-4`로 스크롤 영역을 화면 끝까지 흘림). 표는 `components/ui/table.tsx`가 이미 가로 스크롤 컨테이너를 갖고 있다.
+- **확대를 막지 않는다.** `app/layout.tsx`의 `viewport`에 `maximumScale`·`userScalable`을 추가하지 않는다. 작은 글씨를 읽어야 하는 사용자가 갇힌다.
+- 좁은 폭 확인은 **375px**를 기준으로 한다. 가로 스크롤(`body` 레벨)이 생기면 실패다.
+
 ### 7.5 shadcn/ui
 
 - `components/ui/`의 컴포넌트를 손으로 새로 작성하지 않는다. `npx shadcn@latest add <name>`으로 추가한다.
-- **이미 있는 것을 다시 추가하지 않는다.** 현재 존재: `badge`, `button`, `card`, `checkbox`, `dropdown-menu`, `input`, `label`.
+- **이미 있는 것을 다시 추가하지 않는다.** 현재 존재: `badge`, `button`, `card`, `checkbox`, `dialog`, `dropdown-menu`, `input`, `label`, `select`, `separator`, `sonner`, `table`, `tabs`, `textarea`.
 - 아이콘은 `lucide-react`만 쓴다.
+- `radix-ui`(통합 패키지)와 `@radix-ui/react-*`(개별 패키지)가 공존한다. 새 컴포넌트는 통합 패키지를 쓰므로 import 출처를 통일하려 기존 파일을 건드리지 않는다.
+
+#### 7.5.1 `shadcn add` 직후 반드시 하는 v3 보정
+
+**레지스트리는 Tailwind v4 기준 컴포넌트를 내려준다.** 이 프로젝트는 v3.4 고정이므로 생성된 파일을 그대로 두면 빌드가 깨지거나 스타일이 조용히 사라진다. `add` 실행 후 아래를 전수 확인하고 고친다.
+
+1. **깨진 import** — 생성 파일이 `import { cn } from "cn"`을 쓴다(존재하지 않는 모듈). `@/lib/utils`로 고친다. 이걸 빠뜨리면 `typecheck`가 즉시 실패한다.
+2. **v4 전용 유틸리티** — v3에서는 클래스가 그냥 버려져 스타일만 사라진다(오류가 나지 않아 눈치채기 어렵다). v4에서 스케일이 한 칸 밀렸으므로 이름을 되돌린다.
+
+   | v4 (생성됨)            | v3 (교정)        |
+   | ---------------------- | ---------------- |
+   | `outline-hidden`       | `outline-none`   |
+   | `rounded-xs`           | `rounded-sm`     |
+   | `shadow-xs`            | `shadow-sm`      |
+   | `field-sizing-content` | 대응 없음 → 제거 |
+
+3. **v4 전용 `*:` 자식 변형** — v3에 없다. 임의 선택자로 바꾼다.
+   `*:data-[slot=x]:flex` → `[&>[data-slot=x]]:flex`, `*:[span]:last:flex` → `[&>span:last-child]:flex`
+4. **CSS 변수를 색으로 쓰는 코드** — 이 프로젝트의 변수는 HSL 삼중값(`--popover: 0 0% 100%`)이라 `var(--popover)`만으로는 유효한 색이 아니다. `hsl(var(--popover))`로 감싼다. 단위를 가진 변수(`--radius: 0.5rem`)는 그대로 둔다.
+5. **Prettier** — CLI 생성 파일은 프로젝트 설정(세미콜론 등)과 다르다. `npx prettier --write <생성된 파일들>`을 돌린다.
+
+확인 명령:
+
+```bash
+grep -rnE 'from "cn"|outline-hidden|rounded-xs|shadow-xs|field-sizing|[^*]\*:[a-z[]' components/ui/
+```
+
+설정 파일(`tailwind.config.ts`, `app/globals.css`, `components.json`)은 CLI가 건드리지 않는 것이 정상이다. `add` 전후로 `shasum`을 비교해 확인하고, 변경됐다면 되돌린다.
 
 ### 7.6 주석
 
@@ -358,12 +415,12 @@ Next.js 16 관련이면 node_modules/next/dist/docs/ 를 먼저 읽는다
 기억으로 쓰지 않는다
 ```
 
-**스타터 잔여물을 지워야 한다**
+**스타터 잔여물을 지워야 한다** — 2026-10-01 T-001에서 완료
 
 ```
-components/hero.tsx 는 app/page.tsx 가 참조한다 → 단독 삭제 불가. 랜딩을 먼저 대체한다
-components/tutorial/ 는 app/protected/page.tsx 가 참조한다 → 함께 처리한다
-lib/supabase/proxy.ts 의 /instruments 예외는 app/instruments/ 삭제와 같이 제거한다
+components/tutorial/ · deploy-button · hero · next-logo · supabase-logo · app/instruments/ 삭제됨
+app/page.tsx 는 모임 랜딩으로 대체됨. app/protected/ 는 남아 있다(T-202에서 제거 판단)
+남은 것: lib/supabase/proxy.ts 의 /instruments 예외 2줄 → T-201에서 제거한다
 ```
 
 **요구사항이 모호하다**
