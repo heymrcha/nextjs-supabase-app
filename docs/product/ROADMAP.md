@@ -120,7 +120,7 @@ PRD 원문을 그대로 옮기면 동작하지 않는 지점이다. 각 작업 �
   - 실패는 존재하지 않음 / 삭제됨 / 만료됨을 구분하지 않고 모두 `EVENT_UNAVAILABLE`(`errcode = 'P0002'`). 마감은 `RSVP_CLOSED`(`P0001`)
   - 마지막에 함수 3개에만 `grant execute ... to anon` (T-104의 `revoke` 이후에 실행되어야 한다)
   - 선행: T-104
-- [ ] **T-106 마이그레이션 `moim_rsvp_change_trigger`** — `public.log_rsvp_change()` + `rsvps_log_change` (after insert or update, for each row)
+- [x] **T-106 마이그레이션 `moim_rsvp_change_trigger`** — `private.log_rsvp_change()` + `rsvps_log_change` (after insert or update, for each row). 함수를 `public`이 아니라 **`private`에 두었다** — T-103과 같은 이유로 `public`의 SECURITY DEFINER 함수는 어드바이저 경고가 된다. `private.set_updated_at()` before update 트리거 3개도 같은 마이그레이션에서 함께 넣었다(T-101의 부채 해소)
   - `status` 또는 `display_name`이 바뀔 때만 기록. `note`만 바뀐 경우는 기록하지 않는다(노이즈)
   - 이력 기록은 애플리케이션이 아니라 트리거가 담당한다 — RPC · 주최자 편집 · 관리 스크립트 어느 경로로 들어와도 빠지지 않게
   - 선행: T-105
@@ -191,7 +191,7 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
 - **`revoke execute ... from public`만으로는 `anon`이 막히지 않는다.** Supabase가 public 스키마 함수의 EXECUTE를 `anon`·`authenticated`·`service_role`에게 기본 권한으로 **명시적으로** 부여하기 때문이다. T-104에서 PUBLIC과 `anon`을 모두 명시해야 한다.
 - `is_settlement_host(uuid)` 헬퍼를 추가했다. `settlement_items`·`settlement_shares`는 `event_id`를 직접 갖지 않아 정책 4곳에 중첩 `exists`가 흩어진다.
 - **적용한 마이그레이션 SQL을 `supabase/migrations/`에 남긴다**(`shrimp-rules.md` §5.3). `apply_migration`은 원격에만 적용하므로 파일이 없으면 스키마가 저장소에 존재하지 않는다.
-- `updated_at` 자동 갱신 수단이 없다. 컬럼은 `default now()`지만 UPDATE 시 갱신되지 않는다(`moddatetime` 미설치). **T-106에서 함께 처리할지 결정한다** — 애플리케이션에 맡기면 경로마다 누락된다.
+- ~~`updated_at` 자동 갱신 수단이 없다~~ → **T-106에서 해소**했다. `private.set_updated_at()` before update 트리거를 `events`·`event_notices`·`rsvps` 세 테이블에 달았다. 애플리케이션이 과거 시각을 직접 넣어도 트리거가 `now()`로 덮는다. `rsvps.responded_at`은 건드리지 않으므로 정원 순번 기준이 보존된다.
 - `get_advisors`에 `auth_leaked_password_protection` WARN이 남아 있다. 스키마가 아니라 프로젝트 Auth 설정이므로 마이그레이션으로 해결할 수 없다. **T-110의 "경고 0건" 관문 전에 대시보드에서 켜거나 범위 밖으로 명시해야 한다.**
 
 ---
