@@ -2,7 +2,7 @@
 
 > 기준 문서: [`docs/product/moim-mvp-prd-alt.md`](./docs/product/moim-mvp-prd-alt.md) (확정된 단일 기준)
 > 대상 리포지토리: `nextjs-supabase-app` · Next.js 16 App Router / Supabase / Tailwind v3.4 / shadcn-ui new-york
-> 최종 갱신: 2026-10-01
+> 최종 갱신: 2026-10-02
 
 주최자가 단발 모임의 **공지 · 참석 집계 · 비용 정산**을 링크 하나로 끝내게 한다. 참여자는 가입하지 않는다.
 
@@ -291,21 +291,35 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
 
 목표: 가입하지 않은 참여자가 링크만으로 응답 · 수정하고, 주최자가 그것을 이력까지 본다.
 
-- [ ] **T-301 게스트 쿠키 유틸** — `lib/moim/guest-cookie.ts`
+- [x] **T-301 게스트 쿠키 유틸** — `lib/moim/guest-cookie.ts`
   - 이름 `moim_gk_<event_id 앞 8자>`, 값은 `crypto.randomUUID()`, 속성 `httpOnly` · `secure` · `sameSite=lax` · `path=/` · `maxAge=180일`
   - 쿠키에 이름 · 연락처를 넣지 않는다. 이벤트별로 분리해 한 이벤트의 키가 다른 이벤트 응답을 건드리지 못하게 한다
+  - `secure`는 `process.env.NODE_ENV === "production"`으로 분기한다. 로컬 http에서는 secure 쿠키가 저장되지 않아, 고정하면 T-304의 프리필 검증이 원인 불명으로 실패한다
+  - 읽기는 `CookieStoreLike`(`get(name)`만 요구하는 최소 인터페이스)로 받는다. `next/headers`의 `cookies()`와 `NextRequest.cookies`는 타입이 다르지만 구조적으로 들어맞아 **Server Component와 Route Handler가 같은 함수를 쓴다**(`any` 0건)
+  - 검증: `Set-Cookie` 헤더 실측 — `HttpOnly` · `SameSite=lax` · `Max-Age=15552000`이고 이벤트가 다르면 쿠키 이름도 다르다. 실제 응답 흐름에서 심기는 것은 T-302에서 확인했다
   - 선행: T-005
-- [ ] **T-302 `POST /api/guest/rsvp` Route Handler** — 게스트 쓰기의 유일한 입구
+- [x] **T-302 `POST /api/guest/rsvp` Route Handler** — 게스트 쓰기의 유일한 입구
   - zod로 body 검증 → 쿠키에서 `guest_key` 읽기(없으면 발급) → `api.guest_submit_rsvp` RPC → 응답에 쿠키 심기
-  - **body의 `guest_key`는 무조건 무시하고 항상 쿠키 값만 사용한다.** 클라이언트가 남의 키를 지정할 수 없어야 한다
-  - 오류 코드 매핑: `EVENT_UNAVAILABLE` → 410, `RSVP_CLOSED` → 409, `INVALID_NAME` / `INVALID_NOTE` / `INVALID_STATUS` / `GUEST_KEY_REQUIRED` → 400, `RATE_LIMITED` → 429. 응답 형태를 하나로 통일하고 내부 메시지를 흘리지 않는다
-  - 철회 경로도 같은 Handler에서 처리하거나 `POST /api/guest/rsvp/withdraw`로 분리(결정 후 기록)
+  - **body의 `guest_key`는 스키마에 필드를 정의하지 않는다** — "무시한다"가 아니라 표현 자체가 불가능하다. 반면 `eventId`는 받는다: 쿠키 이름이 `event_id` 기반인데 Handler는 RPC 이후에야 event_id를 알기 때문이다. 위조해도 다른 이벤트의 쿠키를 읽을 뿐이고, 그 키로는 `rsvps`의 `unique (event_id, guest_key)` 때문에 남의 응답을 건드릴 수 없다
+  - 쿠키 이름은 body의 `eventId`가 아니라 **RPC가 반환한 `event_id`**로 만든다. body 값을 쓰면 위조된 이름의 쿠키가 심겨 다음 방문에 본인 응답을 찾지 못한다
+  - 오류 매핑은 `lib/moim/guest-api.ts`에 테이블로 모아 두 Handler가 공유한다: `EVENT_UNAVAILABLE` → 410, `RSVP_CLOSED` → 409, `INVALID_NAME` / `INVALID_NOTE` / `INVALID_STATUS` / `GUEST_KEY_REQUIRED` → 400, `RATE_LIMITED` → 429. zod 실패도 **DB와 같은 코드**로 옮긴다(두 층이 다른 코드를 내면 클라이언트가 "어느 층에서 걸렸는지"로 분기해야 한다). 매핑되지 않는 오류는 서버 로그에만 원문을 남기고 500 + 일반 문구
+  - 철회는 **`POST /api/guest/rsvp/withdraw`로 분리했다**(결정). body 스키마와 오류 매핑이 달라, 합치면 "이름 없는 제출"과 "철회"를 구분하는 분기가 생긴다. 철회는 쿠키 키가 필수이므로 없으면 DB까지 가지 않고 400
+  - 제네릭 없는 `supabase-js`의 `rpc()`는 반환이 `any`다. 경계에서 zod로 파싱해 `GuestRsvpResult`로 좁혔다 — 안 하면 `any` 금지 규칙이 조용히 무력화된다
+  - 쿠키가 차단된 브라우저는 매번 새 키를 받아 응답이 수정이 아니라 **추가로 쌓인다.** 제출을 막지 않는 쪽을 택했고(참석 여부는 전해져야 한다) 중복은 주최자가 병합 · 삭제한다(T-306)
+  - 검증(curl): 정상 제출 200 + 쿠키, body에 `guest_key`를 위조해 넣어도 **DB 행의 키는 쿠키 값** 그대로, `eventId` 위조 시 대상 이벤트 무영향(새 행이 생길 뿐), 무효 · 만료 · 삭제 토큰 모두 410 동일 응답, 마감 409, 21자 이름 · 잘못된 status · 201자 메모 400, 분당 상한 429. 오류 응답에 PostgreSQL 메시지 · sqlstate · 함수명 0건
   - 선행: T-105, T-107, T-301
-- [ ] **T-303 `/e/[token]` + `/e/expired`** — 서버 컴포넌트에서 `api.guest_get_event(p_token, p_guest_key)` 호출
+- [x] **T-303 `/e/[token]` + `/e/expired`** — 서버 컴포넌트에서 `api.guest_get_event(p_token, p_guest_key)` 호출
   - 공지(고정 우선) + 일시 · 장소 + 내 응답 카드 + 명단 3탭 + (공개 시) 내 분담금
   - `EVENT_UNAVAILABLE`이면 `/e/expired`로. 이벤트 존재 여부조차 노출하지 않는다
   - 데이터 읽기 async 컴포넌트 분리 + `<Suspense>`. 모든 출력은 React 기본 이스케이프에 맡기고 `dangerouslySetInnerHTML`을 쓰지 않는다
   - **모바일 퍼스트로 만든다(T-603에서 고치는 것이 아니다).** 375px에서 가로 스크롤이 없어야 하고, 명단 3탭이 넘치면 줄바꿈이 아니라 가로 스크롤로 흘린다. 컨테이너는 `app/e/layout.tsx`가 이미 잡아 뒀다
+  - D1의 2단 호출: 1차는 `p_guest_key`를 `null`로 보내 `event_id`를 얻고, 쿠키가 있을 때만 2차로 `is_mine`과 본인 `note`를 채운다. 최초 방문자(가장 흔한 경로)는 1회로 끝난다. 2차가 실패하면 1차 결과로 그려 읽기는 보존한다
+  - `parseGuestEventPayload`(`lib/moim/guest-payload.ts`)가 `rpc()`의 `any`를 막는 유일한 관문이다. zod 스키마에 `satisfies z.ZodType<GuestEventPayload>`를 붙여 `types/moim.ts`의 손으로 쓴 계약과 어긋나면 **컴파일 시점에** 잡는다
+  - **`redirect()`가 `<Suspense>` 안에서 일어나므로 HTTP 상태는 307이 아니라 200 + 스트리밍 중 soft navigation이다.** 무효 · 만료 · 삭제 세 케이스의 응답이 동일하다는 요건은 충족하지만, "307을 받는다"고 가정하면 안 된다
+  - 마감 판정은 T-206에서 만든 `isRsvpClosed()`를 서버에서 불러 prop으로 내린다. 렌더 본문의 `Date.now()`는 `react-hooks/purity`에 걸린다(여기서도 실제로 걸렸다)
+  - 터치 영역을 실측하니 버튼 36px · 탭 29px로 44px 미달이었다. 버튼 `h-11`, `TabsList` `min-h-[52px]`로 올려 미달 0건. `TabsList`의 `h-9`는 group-data 변형이라 `h-*`로는 덮이지 않고 `min-height`가 필요하다
+  - 상태 라벨은 `lib/moim/format.ts`의 `RSVP_STATUS_LABEL`로 모았다(T-304 · T-306이 같은 문자열을 쓴다). 명단 표시 규칙 자체는 T-305 소관이라 상태별 분류와 자리만 잡았다
+  - 검증: HTML 소스에 `guest_key` · 타인 `note` 0건, `dangerouslySetInnerHTML` 사용 0건. 쿠키 재방문 시 '내 응답'에 본인 이름 · 본인 메모 · '응답 수정하기'가 나온다(2차 호출 실증). 이름 `a"b\\c<&>'d`가 이스케이프되어 깨지지 않는다. 375px에서 `scrollWidth - clientWidth = 0`, 탭 전환 정상
   - 선행: T-108, T-302
 - [ ] **T-304 `/e/[token]/respond` 응답 폼** — 이름 + 참석 / 불참 / 미정 + 메모(200자)
   - 쿠키가 있으면 기존 값 프리필(본인 `note` 포함), 없으면 신규 입력
