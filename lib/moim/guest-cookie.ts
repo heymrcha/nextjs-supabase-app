@@ -1,5 +1,7 @@
+import type { NextResponse } from "next/server";
+
 /**
- * 게스트 식별 쿠키의 규약(PRD 7.5). 읽기·발급 로직은 T-301에서 이 상수들 위에 올린다.
+ * 게스트 식별 쿠키(PRD 7.5). 이름 규칙·속성과 읽기·발급 로직이 모두 여기 모인다.
  *
  * 쿠키에는 guest_key(uuid v4)만 담는다 — 이름·연락처는 넣지 않고 서버가 키로 조회한다.
  * guest_key는 비밀이 아니므로 서명하지 않는다(탈취돼도 그 이벤트의 한 응답만 수정할 수
@@ -30,3 +32,32 @@ export const GUEST_COOKIE_OPTIONS = {
   path: "/",
   maxAge: GUEST_COOKIE_MAX_AGE,
 } as const;
+
+/**
+ * `next/headers`의 `cookies()`와 `NextRequest.cookies`는 타입이 다르지만
+ * 여기서 필요한 것은 `get(name)`뿐이다. 공통 부분만 요구해 Server Component와
+ * Route Handler가 같은 읽기 함수를 쓰게 한다.
+ */
+export interface CookieStoreLike {
+  get(name: string): { value: string } | undefined;
+}
+
+/** 해당 이벤트의 guest_key를 읽는다. 최초 방문이면 null. */
+export function readGuestKey(
+  store: CookieStoreLike,
+  eventId: string,
+): string | null {
+  return store.get(guestCookieName(eventId))?.value ?? null;
+}
+
+export function issueGuestKey(): string {
+  return crypto.randomUUID();
+}
+
+export function setGuestKeyCookie(
+  res: NextResponse,
+  eventId: string,
+  key: string,
+): void {
+  res.cookies.set(guestCookieName(eventId), key, GUEST_COOKIE_OPTIONS);
+}
