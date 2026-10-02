@@ -11,7 +11,6 @@
  * 여백은 `app/e/layout.tsx`가 책임진다 — 여기서 `px-*`를 다시 걸지 않는다.
  */
 
-import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -21,18 +20,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { isRsvpClosed } from "@/lib/moim/event-status";
+import { findMyRsvp, loadGuestEvent } from "@/lib/moim/guest-event";
+import {
+  buildRoster,
+  countRsvps,
+  groupRosterByStatus,
+  type RosterEntry,
+} from "@/lib/moim/roster";
+import { cn } from "@/lib/utils";
 import {
   formatDateTime,
   formatKrw,
   RSVP_STATUS_LABEL,
 } from "@/lib/moim/format";
-import { parseGuestEventPayload } from "@/lib/moim/guest-payload";
-import { readGuestKey } from "@/lib/moim/guest-cookie";
-import { createGuestClient } from "@/lib/supabase/guest";
 import type {
   GuestEventPayload,
   GuestNotice,
-  GuestRpcArgs,
   GuestRsvp,
   RsvpStatus,
 } from "@/types/moim";
@@ -41,50 +44,26 @@ const STATUS_ORDER: RsvpStatus[] = ["attending", "maybe", "declined"];
 
 async function GuestEvent({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const supabase = createGuestClient();
-
-  /**
-   * 2단 호출이 D1(쿠키 이름을 event_id 기반으로 유지)의 대가다. 쿠키 이름을 만들려면
-   * event_id가 필요하고, 게스트 경로는 token만 안다 — 그래서 1차는 키 없이 불러 event_id를
-   * 얻고, 쿠키가 있을 때만 2차로 본인 표시를 채운다. 쿠키 이름을 token 기반으로 바꾸는
-   * 대안은 share_token 재발급(T-205)이 쿠키를 고아로 만들어 "재발급 후에도 기존 응답은
-   * 유지한다"는 결정과 충돌해서 택하지 않았다.
-   *
-   * 최초 방문자(가장 흔한 경로)는 1회로 끝나고, `guest_get_event`는 stable이라
-   * 재방문자의 2회도 단발 모임 규모에서는 무해하다.
-   */
-  const firstArgs: GuestRpcArgs["guest_get_event"] = {
-    p_token: token,
-    p_guest_key: null,
-  };
-  const first = await supabase.rpc("guest_get_event", firstArgs);
+  const payload = await loadGuestEvent(token);
 
   // EVENT_UNAVAILABLE(없음·삭제됨·만료됨)을 구분하지 않는다. redirect로 통일해
-  // 상태 코드까지 같게 만든다 — 404와 200이 섞이면 토큰의 존재 여부가 새어 나간다.
+  // 같은 결과를 내게 한다 — 404와 200이 섞이면 토큰의 존재 여부가 새어 나간다.
   // redirect()는 예외를 throw하므로 try/catch로 감싸지 않는다.
-  if (first.error) redirect("/e/expired");
-
-  let payload = parseGuestEventPayload(first.data);
   if (!payload) redirect("/e/expired");
-
-  const guestKey = readGuestKey(await cookies(), payload.event.id);
-  if (guestKey) {
-    const secondArgs: GuestRpcArgs["guest_get_event"] = {
-      p_token: token,
-      p_guest_key: guestKey,
-    };
-    const second = await supabase.rpc("guest_get_event", secondArgs);
-    // 2차가 실패해도 화면은 1차 결과로 그린다. 본인 표시만 빠지고 읽기는 된다
-    const refreshed = second.error ? null : parseGuestEventPayload(second.data);
-    if (refreshed) payload = refreshed;
-  }
 
   // 마감 판정은 서버에서 하고 결과만 내린다 — 렌더 본문에서 시계를 읽으면
   // react-hooks/purity에 걸리고 서버·클라이언트 시각 차이로 표시가 흔들린다
+  // 표시 규칙도 시계를 읽는다(미정 기한 초과). 마감 판정과 같은 이유로 여기서 계산한다
+  const roster = buildRoster(payload.rsvps, {
+    capacity: payload.event.capacity,
+    maybeDeadline: payload.event.maybe_deadline,
+  });
+
   return (
     <GuestEventView
       token={token}
       payload={payload}
+      roster={roster}
       isClosed={isRsvpClosed(payload.event.rsvp_closes_at)}
     />
   );
@@ -93,21 +72,23 @@ async function GuestEvent({ params }: { params: Promise<{ token: string }> }) {
 function GuestEventView({
   token,
   payload,
+  roster,
   isClosed,
 }: {
   token: string;
   payload: GuestEventPayload;
+  roster: RosterEntry[];
   isClosed: boolean;
 }) {
-  const { event, notices, rsvps, settlement } = payload;
-  const mine = rsvps.find((rsvp) => rsvp.is_mine) ?? null;
+  const { event, notices, settlement } = payload;
+  const mine = findMyRsvp(payload);
 
   return (
     <div className="flex flex-col gap-6">
       <EventHeader event={event} />
       <NoticeSection notices={notices} />
       <MyRsvpCard token={token} mine={mine} isClosed={isClosed} />
-      <RosterTabs rsvps={rsvps} />
+      <RosterTabs roster={roster} myRsvpId={mine?.id ?? null} />
       {settlement && (
         <SettlementSection
           settlement={settlement}
@@ -221,10 +202,11 @@ function MyRsvpCard({
 
       {mine ? (
         <div className="flex flex-col gap-2">
-          <p className="flex flex-wrap items-center gap-2">
+          {/* Badge가 <div>를 렌더하므로 <p>로 감쌀 수 없다 — 중첩이 무효라 hydration 오류가 난다 */}
+          <div className="flex flex-wrap items-center gap-2">
             <span className="break-all font-medium">{mine.display_name}</span>
             <Badge variant="secondary">{RSVP_STATUS_LABEL[mine.status]}</Badge>
-          </p>
+          </div>
           {mine.note && (
             <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
               {mine.note}
@@ -253,13 +235,23 @@ function MyRsvpCard({
 }
 
 /**
- * 명단 3탭. 표시 규칙(동명이인 번호·정원 초과 대기 순번·미정 기한 초과 배지)은
- * T-305의 `lib/moim/roster.ts`가 맡는다 — 여기서는 상태별 분류와 자리만 잡는다.
+ * 명단 3탭. 표시 규칙(동명이인 번호 · 정원 초과 대기 순번 · 미정 기한 초과 배지)은
+ * `lib/moim/roster.ts`가 계산한 결과를 그대로 그린다 — 주최자 화면(T-306)도 같은
+ * 함수를 쓰므로 두 화면의 표시가 어긋나지 않는다.
  *
  * `TabsList`는 `inline-flex`라 넘쳐도 줄바꿈되지 않는다. `overflow-x-auto`를 걸어
  * 가로로 흘러가게 하면 좁은 폭에서도 탭 줄 높이가 변하지 않는다.
  */
-function RosterTabs({ rsvps }: { rsvps: GuestRsvp[] }) {
+function RosterTabs({
+  roster,
+  myRsvpId,
+}: {
+  roster: RosterEntry[];
+  myRsvpId: string | null;
+}) {
+  const groups = groupRosterByStatus(roster);
+  const counts = countRsvps(roster);
+
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-sm font-medium text-muted-foreground">참석 명단</h2>
@@ -270,8 +262,7 @@ function RosterTabs({ rsvps }: { rsvps: GuestRsvp[] }) {
         <TabsList className="min-h-[52px] w-full overflow-x-auto">
           {STATUS_ORDER.map((status) => (
             <TabsTrigger key={status} value={status}>
-              {RSVP_STATUS_LABEL[status]}{" "}
-              {rsvps.filter((rsvp) => rsvp.status === status).length}
+              {RSVP_STATUS_LABEL[status]} {counts[status]}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -279,8 +270,9 @@ function RosterTabs({ rsvps }: { rsvps: GuestRsvp[] }) {
         {STATUS_ORDER.map((status) => (
           <TabsContent key={status} value={status}>
             <RosterList
-              rsvps={rsvps.filter((rsvp) => rsvp.status === status)}
+              entries={groups[status]}
               status={status}
+              myRsvpId={myRsvpId}
             />
           </TabsContent>
         ))}
@@ -290,13 +282,15 @@ function RosterTabs({ rsvps }: { rsvps: GuestRsvp[] }) {
 }
 
 function RosterList({
-  rsvps,
+  entries,
   status,
+  myRsvpId,
 }: {
-  rsvps: GuestRsvp[];
+  entries: RosterEntry[];
   status: RsvpStatus;
+  myRsvpId: string | null;
 }) {
-  if (rsvps.length === 0) {
+  if (entries.length === 0) {
     return (
       <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
         {RSVP_STATUS_LABEL[status]} 응답이 아직 없습니다.
@@ -306,16 +300,30 @@ function RosterList({
 
   return (
     <ul className="flex flex-col divide-y rounded-lg border">
-      {rsvps.map((rsvp) => (
+      {entries.map((entry) => (
         <li
-          key={rsvp.id}
-          className="flex flex-wrap items-center gap-2 px-4 py-3 text-sm"
+          key={entry.id}
+          className={cn(
+            "flex flex-wrap items-center gap-2 px-4 py-3 text-sm",
+            // 정원 초과분은 거부하지 않고 회색으로 구분한다(PRD 4절)
+            entry.isOverCapacity && "text-muted-foreground",
+          )}
         >
           {/* 이름은 20자까지 자유 입력이다. 좁은 폭에서 넘치지 않게 break-all */}
-          <span className="break-all">{rsvp.display_name}</span>
-          {rsvp.is_mine && (
+          <span className="break-all">{entry.label}</span>
+          {entry.id === myRsvpId && (
             <Badge variant="outline" className="shrink-0">
               나
+            </Badge>
+          )}
+          {entry.waitlistNumber !== null && (
+            <Badge variant="secondary" className="shrink-0">
+              대기 {entry.waitlistNumber}번
+            </Badge>
+          )}
+          {entry.isDeadlinePassed && (
+            <Badge variant="outline" className="shrink-0">
+              기한 초과
             </Badge>
           )}
         </li>
@@ -342,7 +350,8 @@ function SettlementSection({
 
       {settlement.my_share ? (
         <div className="flex flex-col gap-2">
-          <p className="flex flex-wrap items-center gap-2">
+          {/* Badge가 <div>를 렌더하므로 <p>로 감쌀 수 없다 — 중첩이 무효라 hydration 오류가 난다 */}
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-2xl font-bold">
               {formatKrw(settlement.my_share.amount)}
             </span>
@@ -351,7 +360,7 @@ function SettlementSection({
             >
               {settlement.my_share.is_paid ? "입금 완료" : "입금 전"}
             </Badge>
-          </p>
+          </div>
           <p className="text-sm text-muted-foreground">
             전체 비용 {formatKrw(settlement.total)}
           </p>
