@@ -10,6 +10,8 @@
  * | display_name       | char_length 1~20                         |
  * | note               | null 또는 char_length <= 200             |
  * | body (공지)        | char_length 1~2000                       |
+ * | label (비용 항목)  | char_length 1~100                        |
+ * | amount (비용 항목) | int, > 0                                 |
  *
  * share_token은 어떤 스키마에도 넣지 않는다. 클라이언트가 정할 수 있는 값이 아니고
  * before insert 트리거가 덮어쓴다(D2).
@@ -168,3 +170,37 @@ export const noticeSchema = z.object({
 
 export type NoticeFormValues = z.input<typeof noticeSchema>;
 export type NoticeInput = z.output<typeof noticeSchema>;
+
+/**
+ * 비용 항목 금액(T-501). **원 단위 정수만 받는다** — 부동소수가 들어오면 분담금
+ * 계산(T-502)의 올림이 1원 단위로 흔들리고, DB의 `amount int`가 23502가 아니라
+ * 22P02로 거부해 사용자에게 코드가 샌다.
+ *
+ * `z.coerce.number()`도 `<input type="number">`의 값도 "1.5"·"1e3"을 통과시키므로
+ * 정규식으로 먼저 막는다. 상한은 int4(2,147,483,647) 안쪽이면서 오타를 걸러 내는
+ * 선으로 1억 원을 쓴다 — DB에는 상한 제약이 없고 이 값은 화면 쪽 방어선이다.
+ */
+const wonAmount = z
+  .string()
+  .trim()
+  .min(1, "금액을 입력해 주세요")
+  .refine((value) => /^\d+$/.test(value), {
+    message: "원 단위 정수로 입력해 주세요",
+  })
+  .transform(Number)
+  .refine((value) => value > 0, { message: "1원 이상으로 입력해 주세요" })
+  .refine((value) => value <= 100_000_000, {
+    message: "1억 원 이하로 입력해 주세요",
+  });
+
+export const settlementItemSchema = z.object({
+  label: z
+    .string()
+    .trim()
+    .min(1, "항목 이름을 입력해 주세요")
+    .max(100, "항목 이름은 100자 이내로 입력해 주세요"),
+  amount: wonAmount,
+});
+
+export type SettlementItemFormValues = z.input<typeof settlementItemSchema>;
+export type SettlementItemInput = z.output<typeof settlementItemSchema>;
