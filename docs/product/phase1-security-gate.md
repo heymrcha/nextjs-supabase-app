@@ -104,7 +104,9 @@ HaveIBeenPwned 대조로 유출된 비밀번호를 거부하는 Auth 기능이 �
 
 조치 경로: Supabase 대시보드 → Authentication → Policies(Password) → Leaked password protection 활성화.
 
-**판정: 관문 기준을 "스키마에서 비롯한 경고 0건"으로 좁히고 통과시킨다.** 근거 — 이 항목은 게스트 노출 표면과 무관하고(게스트는 비밀번호를 쓰지 않는다), 주최자 로그인 품질에만 영향을 준다. Phase 2를 막을 이유가 없다. 단 T-604 이전에 대시보드에서 켜는 것을 권한다.
+**판정: 관문 기준을 "스키마에서 비롯한 경고 0건"으로 좁히고 통과시킨다.** 근거 — 이 항목은 게스트 노출 표면과 무관하고(게스트는 비밀번호를 쓰지 않는다), 주최자 로그인 품질에만 영향을 준다. Phase 2를 막을 이유가 없다.
+
+**2026-10-02 확정: 이 프로젝트에서는 켤 수 없다.** `Prevent use of leaked passwords`는 Pro 플랜 이상의 기능이고 이 프로젝트는 Free 플랜이다. 따라서 "실사용 전에 켠다"가 아니라 **플랜을 올리기 전까지 영구 예외**다. 이 경고는 advisor에 계속 남으므로, 수락 예외 표의 다른 항목과 같은 자격으로 둔다.
 
 ## 6. 검증 데이터 처리
 
@@ -159,7 +161,7 @@ T-110 시점에는 `get_advisors(security)` 경고가 "설계상 의도된 3건 
 | `anon_security_definer_function_executable` (WARN ×3)          | `api.guest_get_event`, `api.guest_submit_rsvp`, `api.guest_withdraw_rsvp` | **게스트 출입구 그 자체.** 가입 없는 응답이 제품의 전제이고, `anon`이 호출할 수 있는 함수는 이 3개뿐이다. 함수 내부에서 토큰·만료·소프트 삭제를 전부 확인하고 타인의 `note`·`guest_key`를 payload에서 제외한다.                                                                                                                          |
 | `authenticated_security_definer_function_executable` (WARN ×1) | `public.regenerate_share_token(uuid)`                                     | 재발급은 `update`에 트리거가 걸리지 않아 **DB 함수로 감쌀 수밖에 없고**(D2), 클라이언트가 RPC로 부르므로 `public`에 있어야 한다. 권한 우회는 없다 — 함수가 `private.is_event_host()`로 호스트를 직접 확인하고 `search_path = ''`를 잠근다. 호스트가 아니면 `FORBIDDEN`, 없거나 삭제된 모임이면 `EVENT_UNAVAILABLE`로 존재 여부를 숨긴다. |
 | `rls_enabled_no_policy` (INFO ×1)                              | `private.guest_rsvp_calls`                                                | 의도. 레이트 리밋 카운터는 `security definer` 함수 내부에서만 갱신되고 `private` 스키마라 REST 표면이 없다. 정책 부재 = 직접 접근 전면 거부.                                                                                                                                                                                             |
-| `auth_leaked_password_protection` (WARN ×1)                    | Auth 설정                                                                 | 대시보드 설정이며 코드로 해결되지 않는다. 실사용 전 켠다(T-604).                                                                                                                                                                                                                                                                         |
+| `auth_leaked_password_protection` (WARN ×1)                    | Auth 설정                                                                 | **Pro 플랜 전용 기능이라 Free 플랜인 이 프로젝트에서는 켤 수 없다(2026-10-02 확인).** 코드로도 해결되지 않는다. 플랜을 올리면 그때 켠다. 영구 예외로 둔다                                                                                                                                                                                |
 
 ### 다른 선택지를 남겨 두는 이유
 
@@ -200,5 +202,20 @@ Phase 1 이후 추가된 마이그레이션(`moim_notice_single_pin`, `moim_rebu
 
 ### 수락한 예외에 덧붙이는 기록
 
-`auth_leaked_password_protection`은 **아직 켜지 않았다.** 대시보드 설정이라 코드·마이그레이션으로
-해결되지 않는다. 실사용 전에 Authentication → Policies에서 켜는 것을 남은 과제로 둔다.
+`auth_leaked_password_protection`은 **켤 수 없다.** 대시보드 설정이라 코드·마이그레이션으로
+해결되지 않는데, 더구나 `Prevent use of leaked passwords`는 **Pro 플랜 이상에서만 제공되고 이
+프로젝트는 Free 플랜이다**(2026-10-02 확인). 남은 과제가 아니라 플랜에 묶인 제약으로 기록한다 —
+Pro로 올리는 날 Authentication → Sign In / Providers → Email에서 켠다.
+
+### 보완책: 최소 길이 8자 (2026-10-02 적용)
+
+유출 대조가 없는 만큼 길이로 일부 상쇄한다. 코드 쪽은 적용했다 — `lib/moim/password.ts`의
+`PASSWORD_MIN_LENGTH = 8`을 단일 출처로 삼아 가입 폼과 새 비밀번호 폼의 검증·안내 문구·
+`minLength` 속성, 그리고 `auth-errors.ts`의 "너무 짧습니다" 문구가 모두 그 값을 쓴다.
+
+**대시보드 설정이 남아 있다.** 실제로 거부하는 쪽은 Supabase이고 클라이언트 검증은 왕복을
+아끼는 용도일 뿐이다. Authentication → Sign In / Providers → Email → **Minimum password
+length를 8로** 바꿔야 서버와 화면의 기준이 같아진다. 이 설정은 Free 플랜에서도 가능하다.
+
+두 값이 어긋나면 화면은 "8자 이상"이라 안내하고 서버는 6자를 통과시키는(또는 그 반대의)
+상태가 된다. `PASSWORD_MIN_LENGTH`를 고치면 대시보드도 같이 고친다.

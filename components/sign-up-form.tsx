@@ -17,6 +17,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { authErrorMessage } from "@/lib/moim/auth-errors";
+import {
+  PASSWORD_HINT,
+  PASSWORD_MIN_LENGTH,
+  validatePassword,
+} from "@/lib/moim/password";
 
 export function SignUpForm({
   className,
@@ -34,6 +39,14 @@ export function SignUpForm({
     const supabase = createClient();
     setIsLoading(true);
     setError(null);
+
+    // 길이를 먼저 본다 — 둘 다 짧은데 "일치하지 않습니다"만 뜨면 원인을 오해한다
+    const lengthError = validatePassword(password);
+    if (lengthError) {
+      setError(lengthError);
+      setIsLoading(false);
+      return;
+    }
 
     if (password !== repeatPassword) {
       setError("비밀번호가 일치하지 않습니다");
@@ -87,9 +100,14 @@ export function SignUpForm({
                   id="password"
                   type="password"
                   required
+                  minLength={PASSWORD_MIN_LENGTH}
+                  aria-describedby="password-hint"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                <p id="password-hint" className="text-sm text-muted-foreground">
+                  {PASSWORD_HINT}
+                </p>
               </div>
               <div className="grid gap-2">
                 <div className="flex items-center">

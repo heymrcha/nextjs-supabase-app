@@ -8,6 +8,8 @@
  * 정한 코드라 완전 일치로 찾을 수 있고, 여기는 Supabase가 문구를 바꿀 수 있으므로
  * 부분 일치로 찾는다. 목록에 없으면 일반 문구로 떨구고 원문은 콘솔에만 남긴다.
  */
+import { PASSWORD_MIN_LENGTH } from "@/lib/moim/password";
+
 const AUTH_ERROR_MESSAGE: [match: string, message: string][] = [
   ["invalid login credentials", "이메일 또는 비밀번호가 올바르지 않습니다"],
   [
@@ -18,7 +20,7 @@ const AUTH_ERROR_MESSAGE: [match: string, message: string][] = [
   ["already been registered", "이미 가입된 이메일입니다"],
   [
     "password should be at least",
-    "비밀번호가 너무 짧습니다. 6자 이상으로 입력해 주세요",
+    `비밀번호가 너무 짧습니다. ${PASSWORD_MIN_LENGTH}자 이상으로 입력해 주세요`,
   ],
   ["unable to validate email", "이메일 형식이 올바르지 않습니다"],
   ["invalid email", "이메일 형식이 올바르지 않습니다"],

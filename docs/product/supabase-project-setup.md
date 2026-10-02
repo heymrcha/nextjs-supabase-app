@@ -53,6 +53,8 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/is_event_host" \
 
 `get_advisors`가 `auth_leaked_password_protection`을 WARN으로 지적하는 항목이다. 스키마가 아니라 Auth 설정이므로 마이그레이션으로 해결할 수 없다.
 
+> **2026-10-02: Free 플랜에서는 이 토글을 쓸 수 없다.** `Prevent use of leaked passwords`는 Pro 플랜 이상의 기능이라, 이 프로젝트에서는 아래 절차를 수행할 수 없고 advisor 경고도 계속 남는다. 플랜을 올리는 시점에 적용한다.
+
 경로: **Authentication → Sign In / Providers → Email** → `Prevent use of leaked passwords` (HaveIBeenPwned 대조)
 
 ```
@@ -83,6 +85,6 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 | ------------------------------------------- | ---- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `anon_security_definer_function_executable` | WARN | `api.guest_get_event`, `api.guest_submit_rsvp`, `api.guest_withdraw_rsvp` | **이 제품의 핵심 설계다.** 게스트는 가입하지 않으므로 로그인 없이 호출해야 하고, RLS를 우회해 집계·명단을 만들어야 하므로 `SECURITY DEFINER`여야 한다. 대신 함수 안에서 토큰·만료·마감·입력을 모두 재검증하고, 노출 범위를 payload 수준에서 통제한다(타인 `note`·`guest_key` 제외) |
 | `rls_enabled_no_policy`                     | INFO | `private.guest_rsvp_calls`                                                | **정책 부재 = 전면 거부**가 의도다. 이 테이블은 `SECURITY DEFINER` 함수만 만지는 내부 장부이고 `anon`·`authenticated`에게 grant가 없다                                                                                                                                             |
-| `auth_leaked_password_protection`           | WARN | Auth 설정                                                                 | 위 2번을 적용하면 사라진다. 남아 있다면 설정이 반영되지 않은 것이다                                                                                                                                                                                                                |
+| `auth_leaked_password_protection`           | WARN | Auth 설정                                                                 | **Free 플랜에서는 켤 수 없어 계속 남는다**(Pro 전용). 설정 누락이 아니다                                                                                                                                                                                                           |
 
 **`api` 스키마를 노출한 대가로 1번 WARN 3건이 생겼다.** 노출 전에는 없던 경고다 — `api`가 REST에 보이지 않으면 `anon`이 호출할 경로도 없기 때문이다. 즉 이 경고는 "게스트 기능이 실제로 동작한다"는 뜻이기도 하다.

@@ -15,6 +15,11 @@ import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { authErrorMessage } from "@/lib/moim/auth-errors";
+import {
+  PASSWORD_HINT,
+  PASSWORD_MIN_LENGTH,
+  validatePassword,
+} from "@/lib/moim/password";
 
 export function UpdatePasswordForm({
   className,
@@ -30,6 +35,13 @@ export function UpdatePasswordForm({
     const supabase = createClient();
     setIsLoading(true);
     setError(null);
+
+    const lengthError = validatePassword(password);
+    if (lengthError) {
+      setError(lengthError);
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const { error } = await supabase.auth.updateUser({ password });
@@ -58,11 +70,16 @@ export function UpdatePasswordForm({
                 <Input
                   id="password"
                   type="password"
-                  placeholder="6자 이상"
+                  placeholder={`${PASSWORD_MIN_LENGTH}자 이상`}
                   required
+                  minLength={PASSWORD_MIN_LENGTH}
+                  aria-describedby="password-hint"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                <p id="password-hint" className="text-sm text-muted-foreground">
+                  {PASSWORD_HINT}
+                </p>
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
               <Button type="submit" className="w-full" disabled={isLoading}>
