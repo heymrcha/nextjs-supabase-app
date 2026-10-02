@@ -213,9 +213,10 @@ Pro로 올리는 날 Authentication → Sign In / Providers → Email에서 켠�
 `PASSWORD_MIN_LENGTH = 8`을 단일 출처로 삼아 가입 폼과 새 비밀번호 폼의 검증·안내 문구·
 `minLength` 속성, 그리고 `auth-errors.ts`의 "너무 짧습니다" 문구가 모두 그 값을 쓴다.
 
-**대시보드 설정이 남아 있다.** 실제로 거부하는 쪽은 Supabase이고 클라이언트 검증은 왕복을
-아끼는 용도일 뿐이다. Authentication → Sign In / Providers → Email → **Minimum password
-length를 8로** 바꿔야 서버와 화면의 기준이 같아진다. 이 설정은 Free 플랜에서도 가능하다.
+**대시보드도 적용했다(2026-10-02).** Authentication → Sign In / Providers → Email →
+Minimum password length = 8. 이 설정은 Free 플랜에서도 가능하다. 실제로 거부하는 쪽은
+Supabase이고 클라이언트 검증은 왕복을 아끼는 용도일 뿐이므로, 둘이 같은 값이어야 비로소
+기준이 성립한다.
 
 두 값이 어긋나면 화면은 "8자 이상"이라 안내하고 서버는 6자를 통과시키는(또는 그 반대의)
 상태가 된다. `PASSWORD_MIN_LENGTH`를 고치면 대시보드도 같이 고친다.
