@@ -55,3 +55,22 @@ export const RSVP_STATUS_LABEL: Record<RsvpStatus, string> = {
   declined: "불참",
   maybe: "미정",
 };
+
+/**
+ * 이력 타임라인용 짧은 일시(`10. 2. 09:12`). 한 행에 여러 건이 쌓이는 자리라
+ * 긴 형식(`2026년 10월 2일 (금) 오전 9:12`)을 쓰면 변경 내용이 밀려 읽히지 않는다.
+ * 연도를 빼지 않는 이유: 지난 모임의 이력을 볼 때 연도가 없으면 언제 일인지 모른다.
+ */
+const shortDateTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: SEOUL,
+  year: "2-digit",
+  month: "numeric",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+export function formatShortDateTime(value: string | Date): string {
+  return shortDateTimeFormatter.format(new Date(value));
+}
