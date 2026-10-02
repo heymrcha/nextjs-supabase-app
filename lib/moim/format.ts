@@ -5,6 +5,8 @@
  * 같은 값이 서로 다른 문자열로 렌더되면 hydration 불일치가 난다.
  */
 
+import type { RsvpStatus } from "@/types/moim";
+
 const SEOUL = "Asia/Seoul";
 
 const krwFormatter = new Intl.NumberFormat("ko-KR", {
@@ -43,3 +45,13 @@ export function formatDateTime(value: string | Date): string {
 export function formatDate(value: string | Date): string {
   return dateFormatter.format(new Date(value));
 }
+
+/**
+ * 응답 상태의 한국어 라벨. 게스트 화면·응답 폼·주최자 응답 관리가 같은 문자열을 써야
+ * "참석"과 "참석함"이 화면마다 갈리지 않는다. 금액·일시와 같은 이유로 여기 모은다.
+ */
+export const RSVP_STATUS_LABEL: Record<RsvpStatus, string> = {
+  attending: "참석",
+  declined: "불참",
+  maybe: "미정",
+};
