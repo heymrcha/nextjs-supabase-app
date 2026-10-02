@@ -18,7 +18,6 @@ export type GuestEventSummary = {
   capacity: number | null;
   rsvp_closes_at: string | null;
   maybe_deadline: string | null;
-  bank_account: string | null;
 };
 
 export type GuestNotice = {
@@ -47,9 +46,16 @@ export type GuestShare = {
   is_paid: boolean;
 };
 
-/** 정산이 공개(is_published)되지 않았으면 payload에 null로 들어온다 */
+/**
+ * 정산이 공개(is_published)되지 않았으면 payload에 null로 들어온다.
+ *
+ * `bank_account`가 `event`가 아니라 여기에 있는 이유: 계좌는 분담금을 받기 위한 정보라
+ * 공개된 정산과 생명주기가 같다. `event`에 두면 정산이 비공개인 단계에서도 RPC를 직접
+ * 호출해 읽을 수 있었다(T-601 검증에서 발견).
+ */
 export type GuestSettlement = {
   total: number;
+  bank_account: string | null;
   my_share: GuestShare | null;
 };
 

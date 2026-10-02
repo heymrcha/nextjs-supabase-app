@@ -22,7 +22,6 @@ const eventSchema = z.object({
   capacity: z.number().int().nullable(),
   rsvp_closes_at: z.string().nullable(),
   maybe_deadline: z.string().nullable(),
-  bank_account: z.string().nullable(),
 });
 
 const noticeSchema = z.object({
@@ -44,6 +43,8 @@ const rsvpSchema = z.object({
 
 const settlementSchema = z.object({
   total: z.number().int(),
+  // 공개 게이트 안쪽이다 — settlement가 null이면 계좌도 함께 사라진다
+  bank_account: z.string().nullable(),
   my_share: z
     .object({ amount: z.number().int(), is_paid: z.boolean() })
     .nullable(),

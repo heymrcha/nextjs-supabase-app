@@ -89,12 +89,7 @@ function GuestEventView({
       <NoticeSection notices={notices} />
       <MyRsvpCard token={token} mine={mine} isClosed={isClosed} />
       <RosterTabs roster={roster} myRsvpId={mine?.id ?? null} />
-      {settlement && (
-        <SettlementSection
-          settlement={settlement}
-          bankAccount={event.bank_account}
-        />
-      )}
+      {settlement && <SettlementSection settlement={settlement} />}
     </div>
   );
 }
@@ -362,10 +357,8 @@ function RosterList({
  */
 function SettlementSection({
   settlement,
-  bankAccount,
 }: {
   settlement: NonNullable<GuestEventPayload["settlement"]>;
-  bankAccount: string | null;
 }) {
   return (
     <section className="flex flex-col gap-3 rounded-lg border p-4">
@@ -394,8 +387,10 @@ function SettlementSection({
         </p>
       )}
 
-      {bankAccount && (
-        <p className="whitespace-pre-wrap break-words text-sm">{bankAccount}</p>
+      {settlement.bank_account && (
+        <p className="whitespace-pre-wrap break-words text-sm">
+          {settlement.bank_account}
+        </p>
       )}
     </section>
   );
