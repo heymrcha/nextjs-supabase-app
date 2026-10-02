@@ -50,3 +50,6 @@ next-env.d.ts
 !.claude/commands/
 shrimp_data/
 skills-lock.json
+
+# Playwright MCP가 스냅샷·콘솔 로그를 떨어뜨리는 디렉터리. 산출물이 아니다
+.playwright-mcp/
