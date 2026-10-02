@@ -371,11 +371,11 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
 
 목표: 최신 · 고정 공지가 게스트 페이지 상단에 걸린다.
 
-- [ ] **T-401 `/events/[id]/notices` CRUD** — 공지 목록 · 작성 · 수정 · 삭제(`Dialog` 확인). 본문은 여러 줄 `Textarea`
+- [x] **T-401 `/events/[id]/notices` CRUD** — 공지 목록 · 작성 · 수정 · 삭제(`Dialog` 확인). 본문은 여러 줄 `Textarea`
   - 선행: T-204
-- [ ] **T-402 고정 공지 1개 제한** — 새 공지를 고정하면 기존 고정이 해제된다. 경합을 피하려면 단일 트랜잭션(또는 부분 유니크 인덱스 `unique (event_id) where is_pinned`)으로 보장하고, 인덱스를 쓰면 마이그레이션 추가 후 T-109 타입 재생성
+- [x] **T-402 고정 공지 1개 제한** — 새 공지를 고정하면 기존 고정이 해제된다. **둘 다 넣었다**(마이그레이션 `moim_notice_single_pin`): `before insert or update of is_pinned ... when (new.is_pinned)` 트리거 `private.unpin_other_notices()`가 같은 트랜잭션에서 기존 고정을 풀고, 부분 유니크 인덱스 `unique (event_id) where is_pinned`가 최후 방어선이다. 클라이언트는 `is_pinned: true` 하나만 보내므로 "해제 → 고정" 두 왕복 사이에 고정이 0건으로 남는 창이 없다. 트리거 함수는 `private` + `search_path = ''` + `security invoker`(주최자가 RLS로 이미 쓸 수 있어 definer가 불필요하다) — `get_advisors` 경고는 수락된 5건 그대로다. **`types/database.ts`는 재생성했으나 내용이 같다** — `private` 함수와 부분 인덱스는 생성 타입에 나타나지 않는다
   - 선행: T-401
-- [ ] **T-403 게스트 페이지 공지 반영** — `guest_get_event`가 이미 `is_pinned desc, created_at desc`로 정렬해 내려주므로, `/e/[token]` 상단 고정 영역 + 나머지 목록으로 렌더
+- [x] **T-403 게스트 페이지 공지 반영** — `guest_get_event`가 이미 `is_pinned desc, created_at desc`로 정렬해 내려주므로, `/e/[token]` 상단 고정 영역 + 나머지 목록으로 렌더
   - 선행: T-303, T-402
 
 **완료 기준**
