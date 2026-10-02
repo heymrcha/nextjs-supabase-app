@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { authErrorMessage } from "@/lib/moim/auth-errors";
 
 export function SignUpForm({
   className,
@@ -35,7 +36,7 @@ export function SignUpForm({
     setError(null);
 
     if (password !== repeatPassword) {
-      setError("Passwords do not match");
+      setError("비밀번호가 일치하지 않습니다");
       setIsLoading(false);
       return;
     }
@@ -51,7 +52,7 @@ export function SignUpForm({
       if (error) throw error;
       router.push("/auth/sign-up-success");
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
+      setError(authErrorMessage(error, "가입에 실패했습니다"));
     } finally {
       setIsLoading(false);
     }
@@ -61,14 +62,14 @@ export function SignUpForm({
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Sign up</CardTitle>
-          <CardDescription>Create a new account</CardDescription>
+          <CardTitle className="text-2xl">가입</CardTitle>
+          <CardDescription>새 계정을 만듭니다</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignUp}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">이메일</Label>
                 <Input
                   id="email"
                   type="email"
@@ -80,7 +81,7 @@ export function SignUpForm({
               </div>
               <div className="grid gap-2">
                 <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">비밀번호</Label>
                 </div>
                 <Input
                   id="password"
@@ -92,7 +93,7 @@ export function SignUpForm({
               </div>
               <div className="grid gap-2">
                 <div className="flex items-center">
-                  <Label htmlFor="repeat-password">Repeat Password</Label>
+                  <Label htmlFor="repeat-password">비밀번호 확인</Label>
                 </div>
                 <Input
                   id="repeat-password"
@@ -104,19 +105,19 @@ export function SignUpForm({
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Creating an account..." : "Sign up"}
+                {isLoading ? "계정을 만들고 있습니다…" : "가입하기"}
               </Button>
             </div>
             <div className="mt-4 text-center text-sm">
-              Already have an account?{" "}
+              이미 계정이 있으신가요?{" "}
               <Link href="/auth/login" className="underline underline-offset-4">
-                Login
+                로그인
               </Link>
             </div>
           </form>
           <div className="relative my-4 text-center text-sm">
             <span className="relative z-10 bg-card px-2 text-muted-foreground">
-              or
+              또는
             </span>
             <div className="absolute inset-x-0 top-1/2 border-t" />
           </div>

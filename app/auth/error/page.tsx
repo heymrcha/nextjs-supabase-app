@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Suspense } from "react";
 
+import { authErrorMessage } from "@/lib/moim/auth-errors";
+
 async function ErrorContent({
   searchParams,
 }: {
@@ -11,12 +13,16 @@ async function ErrorContent({
   return (
     <>
       {params?.error ? (
+        // 원문은 Supabase가 내려준 영어 메시지나 코드다. 그대로 보여 주지 않는다(T-602)
         <p className="text-sm text-muted-foreground">
-          Code error: {params.error}
+          {authErrorMessage(
+            new Error(params.error),
+            "링크가 만료되었거나 이미 사용되었습니다. 다시 시도해 주세요.",
+          )}
         </p>
       ) : (
         <p className="text-sm text-muted-foreground">
-          An unspecified error occurred.
+          알 수 없는 오류가 발생했습니다.
         </p>
       )}
     </>
@@ -34,9 +40,7 @@ export default function Page({
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">
-                Sorry, something went wrong.
-              </CardTitle>
+              <CardTitle className="text-2xl">문제가 발생했습니다</CardTitle>
             </CardHeader>
             <CardContent>
               <Suspense>
