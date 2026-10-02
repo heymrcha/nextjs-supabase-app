@@ -324,6 +324,10 @@ export type Database = {
     };
     Functions: {
       generate_share_token: { Args: never; Returns: string };
+      rebuild_settlement_shares: {
+        Args: { p_amount: number; p_payers: Json; p_settlement_id: string };
+        Returns: Json;
+      };
       regenerate_share_token: { Args: { p_event_id: string }; Returns: string };
     };
     Enums: {
