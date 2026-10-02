@@ -4,7 +4,7 @@ import { CalendarIcon, MapPinIcon, PinIcon, UsersIcon } from "lucide-react";
 
 import { ShareLinkCard } from "@/components/events/share-link-card";
 import { Badge } from "@/components/ui/badge";
-import { countRsvps, type RsvpCounts } from "@/lib/moim/dashboard";
+import { countRsvps, type RsvpCounts } from "@/lib/moim/roster";
 import { formatDateTime } from "@/lib/moim/format";
 import { createClient } from "@/lib/supabase/server";
 

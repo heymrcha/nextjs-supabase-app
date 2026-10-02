@@ -7,6 +7,7 @@
  * 같은 수를 두 곳에서 따로 구하면 대시보드 배지와 정산 화면이 어긋난다.
  */
 
+import { countRsvps, type RsvpCounts } from "@/lib/moim/roster";
 import type { RsvpStatus } from "@/types/moim";
 
 /** Supabase 중첩 select가 내려주는 모양. 필요한 컬럼만 좁게 받는다 */
@@ -27,12 +28,6 @@ export type DashboardEventRow = {
   } | null;
 };
 
-export type RsvpCounts = {
-  attending: number;
-  declined: number;
-  maybe: number;
-};
-
 export type DashboardEvent = {
   id: string;
   title: string;
@@ -50,16 +45,6 @@ export type DashboardGroups = {
   upcoming: DashboardEvent[];
   past: DashboardEvent[];
 };
-
-export function countRsvps(rsvps: { status: RsvpStatus }[]): RsvpCounts {
-  const counts: RsvpCounts = { attending: 0, declined: 0, maybe: 0 };
-
-  for (const rsvp of rsvps) {
-    counts[rsvp.status] += 1;
-  }
-
-  return counts;
-}
 
 export function toDashboardEvent(row: DashboardEventRow): DashboardEvent {
   const shares = row.settlements?.settlement_shares ?? [];
