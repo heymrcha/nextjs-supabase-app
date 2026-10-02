@@ -394,9 +394,9 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
 
 목표: 비용 항목 입력 → 참석자 균등분할 → 입금 추적 → 게스트가 본인 분담금 확인.
 
-- [ ] **T-501 비용 항목 CRUD** — `/events/[id]/settlement`에서 `settlements`(이벤트당 1개) 지연 생성 + `settlement_items` 추가 · 수정 · 삭제. 금액은 **원 단위 정수**만 받는다(부동소수 금지). 총액 표시
+- [x] **T-501 비용 항목 CRUD** — `/events/[id]/settlement`에서 `settlements`(이벤트당 1개) 지연 생성 + `settlement_items` 추가 · 수정 · 삭제. 금액은 **원 단위 정수**만 받는다(부동소수 금지). 총액 표시
   - 선행: T-102, T-204
-- [ ] **T-502 분담금 계산 로직** — `lib/moim/settlement.ts`에 순수 함수로 구현
+- [x] **T-502 분담금 계산 로직** — `lib/moim/settlement.ts`에 순수 함수로 구현
   ```
   total      = Σ settlement_items.amount
   payers     = 스냅샷 시점의 status = 'attending' 인 rsvp 집합
@@ -408,15 +408,15 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
   - 참석자 0명: 계산하지 않고 "참석자가 없어 분담금을 계산할 수 없습니다"
   - 절상 단위는 `settlements.rounding_unit`(기본 10원)
   - 선행: T-501
-- [ ] **T-503 스냅샷 생성 · 재계산** — `settlement_shares`에 계산 시점 참석자와 이름 · 금액을 복사한다. 이후 RSVP 변경이 이미 산출된 금액을 흔들지 않는다
+- [x] **T-503 스냅샷 생성 · 재계산** — `settlement_shares`에 계산 시점 참석자와 이름 · 금액을 복사한다. 이후 RSVP 변경이 이미 산출된 금액을 흔들지 않는다
   - [분담금 재계산]은 `Dialog` 확인 후 스냅샷을 다시 만들고, `is_paid = true`인 행의 입금 상태를 `rsvp_id` 기준으로 승계한다(`rsvp_id`가 `null`이 된 행은 이름으로 대조하고, 대조 실패 시 사용자에게 알린다)
   - 선행: T-502
-- [ ] **T-504 입금 토글 · 미수금 합계** — 참석자별 `is_paid` 토글(`paid_at` 기록), 미수금 = `per_person × 미입금 인원`. `/events` 대시보드 배지와 값을 일치시킨다
+- [x] **T-504 입금 토글 · 미수금 합계** — 참석자별 `is_paid` 토글(`paid_at` 기록), 미수금 = `per_person × 미입금 인원`. `/events` 대시보드 배지와 값을 일치시킨다
   - 선행: T-503
-- [ ] **T-505 게스트 정산 공개** — `settlements.is_published = true`일 때만 `guest_get_event`가 `my_share`를 내려준다. 게스트 페이지에 본인 분담금 · 입금 상태 · 계좌 안내 문자열 표시
+- [x] **T-505 게스트 정산 공개** — `settlements.is_published = true`일 때만 `guest_get_event`가 `my_share`를 내려준다. 게스트 페이지에 본인 분담금 · 입금 상태 · 계좌 안내 문자열 표시
   - 공개 전에는 정산 영역 자체를 감춘다. 타인의 분담금 · 입금 상태는 노출하지 않는다
   - 선행: T-303, T-504
-- [ ] **T-506 `note` 노출 범위 최종 점검 (수정 사항 4의 UI 측)** — 게스트에게 렌더되는 모든 경로에서 타인의 메모가 새지 않는지 확인한다
+- [x] **T-506 `note` 노출 범위 최종 점검 (수정 사항 4의 UI 측)** — 게스트에게 렌더되는 모든 경로에서 타인의 메모가 새지 않는지 확인한다
   - `/e/[token]` 명단 3탭, `/e/[token]/respond` 프리필, 정산 영역, 페이지 HTML 소스 · JSON payload 전부
   - 본인 메모만 본인에게 보이고, 전체 메모는 `/events/[id]/responses`에만 나타난다
   - 선행: T-105, T-306, T-505
@@ -424,7 +424,7 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
 **완료 기준**
 
 - 항목 2건(40,000 / 12,000) + 참석 7명 → 52,000 ÷ 7 = 7,428.57원이 10원 단위로 절상되어 **1인당 7,430원**, 총 징수 52,010원, 주최자 잔액 +10원이 화면에 정확히 표시된다(계산식을 실제 값으로 1회 검산)
-  - PRD §4 시나리오의 "7,430원 → 7,500원 절상"은 오류다. `rounding_unit = 10`이므로 7,430원이 맞다. PRD를 고칠 때 함께 반영한다
+  - PRD §4 시나리오의 "7,430원 → 7,500원 절상"은 오류였다. `rounding_unit = 10`이므로 7,430원이 맞고, **2026-10-02에 PRD §4(91행)를 고쳤다**
 - 스냅샷 생성 후 참석자 1명이 불참으로 바꿔도 이미 산출된 금액이 변하지 않고, [재계산]을 눌러야 갱신된다
 - 미수금이 0원이 되면 정산 완료 상태로 보인다
 - `is_published = false`인 정산은 게스트 화면에 어떤 형태로도 드러나지 않는다
