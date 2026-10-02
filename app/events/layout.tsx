@@ -23,7 +23,11 @@ export default function EventsLayout({
     <div className="flex min-h-svh flex-col">
       <nav className="flex w-full justify-center border-b">
         <div className="flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3 text-sm sm:px-6">
-          <Link href="/events" className="font-semibold">
+          {/* 터치 영역 44px 확보 — 글자만으로는 24×20이라 모바일에서 누르기 어렵다(T-603) */}
+          <Link
+            href="/events"
+            className="-mx-2 inline-flex min-h-11 items-center px-2 font-semibold"
+          >
             모임
           </Link>
           {/* AuthButton은 세션을 읽으므로 cacheComponents 경계가 필요하다 */}
