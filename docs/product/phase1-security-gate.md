@@ -179,3 +179,26 @@ from information_schema.column_privileges
 where table_schema = 'public' and table_name = 'events'
   and grantee = 'authenticated' and privilege_type = 'UPDATE';
 ```
+
+---
+
+## T-604 재점검 (2026-10-02)
+
+Phase 1 이후 추가된 마이그레이션(`moim_notice_single_pin`, `moim_rebuild_settlement_shares`,
+`moim_rebuild_settlement_shares_guard`, `moim_guest_bank_account_gate`)을 포함한 최종 스키마에서
+같은 4개 항목을 다시 돌렸다. 전체 결과는 `phase6-verification.md`에 있고 여기에는 결론만 남긴다.
+
+- **advisor: 위 표와 완전히 일치.** 목록 밖 경고 0건이므로 관문 통과다. 새로 추가한 함수·트리거는
+  의도적으로 `security definer`를 쓰지 않았고(주최자는 RLS로 이미 쓸 수 있다), 그래서 경고가
+  늘지 않았다. 부분 유니크 인덱스와 `private` 트리거 함수는 advisor·생성 타입 어느 쪽에도 나타나지
+  않는다.
+- **`anon` 직접 접근:** public 테이블 7개 전부 `42501`, `private` 스키마는 `PGRST106`으로 미노출.
+- **`api` 실행 가능 함수: 정확히 3개.** T-402·T-503이 추가한 함수에는 `anon` 권한이 없다.
+- **`events` 컬럼 UPDATE:** `share_token`·`host_id`·`id`·`created_at` 불가, 나머지 12개 가능.
+  그 사이 추가된 컬럼이 빠진 경우는 없다.
+- **`types/database.ts`:** 재생성해도 내용 동일(시그니처 불변), `typecheck` 통과.
+
+### 수락한 예외에 덧붙이는 기록
+
+`auth_leaked_password_protection`은 **아직 켜지 않았다.** 대시보드 설정이라 코드·마이그레이션으로
+해결되지 않는다. 실사용 전에 Authentication → Policies에서 켜는 것을 남은 과제로 둔다.
