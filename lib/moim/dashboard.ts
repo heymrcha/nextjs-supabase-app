@@ -2,12 +2,14 @@
  * `/events` 대시보드가 쓰는 집계·분류 로직. 화면에서 분리해 둔 이유는 Supabase 응답
  * 모양과 표시 규칙을 떼어 놓기 위해서다 — 나중에 집계를 DB 뷰로 옮겨도 화면은 그대로다.
  *
- * 분담금을 여기서 계산하지 않는다. 1인당 금액 산출은 `lib/moim/settlement.ts`(T-502)의
- * 몫이고, 이 파일은 `settlement_shares`에 이미 스냅샷으로 저장된 금액을 더하기만 한다.
- * 같은 수를 두 곳에서 따로 구하면 대시보드 배지와 정산 화면이 어긋난다.
+ * 분담금을 여기서 계산하지 않는다. 1인당 금액 산출도 미수금 합계도 모두
+ * `lib/moim/settlement.ts`(T-502)의 몫이고, 이 파일은 그 함수를 불러 쓴다. 같은 수를
+ * 두 곳에서 따로 구하면 대시보드 배지와 정산 화면이 어긋난다 — 덧셈 한 줄이라도
+ * 복사하지 않고 `sumUnpaid`를 재사용하는 이유다.
  */
 
 import { countRsvps, type RsvpCounts } from "@/lib/moim/roster";
+import { sumUnpaid } from "@/lib/moim/settlement";
 import type { RsvpStatus } from "@/types/moim";
 
 /** Supabase 중첩 select가 내려주는 모양. 필요한 컬럼만 좁게 받는다 */
@@ -56,9 +58,7 @@ export function toDashboardEvent(row: DashboardEventRow): DashboardEvent {
     startsAt: row.starts_at,
     capacity: row.capacity,
     counts: countRsvps(row.rsvps),
-    unpaidTotal: shares
-      .filter((share) => !share.is_paid)
-      .reduce((sum, share) => sum + share.amount, 0),
+    unpaidTotal: sumUnpaid(shares),
     hasSettlement: shares.length > 0,
   };
 }
