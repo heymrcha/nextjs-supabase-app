@@ -44,6 +44,21 @@ const rebuildResultSchema = z.object({
 });
 
 /**
+ * 재계산이 막힌 사유. 게스트 함수와 같은 규약이다 — DB가 `raise exception '<코드>'`로
+ * 올리므로 메시지 자체가 코드다(`lib/moim/guest-api.ts`의 `mapRpcError` 참고).
+ *
+ * 사유를 하나로 뭉치지 않는 이유: "명단이 바뀌어 막힌 것"과 "금액이 잘못된 것"은
+ * 주최자가 할 일이 다르다. 전자는 새로 고치면 되고 후자는 비용 항목을 봐야 한다.
+ */
+const REBUILD_ERROR_MESSAGE: Record<string, string> = {
+  PAYERS_CHANGED:
+    "참석자 명단이 바뀌었습니다. 최신 명단으로 새로 고쳤으니 금액을 확인하고 다시 계산해 주세요",
+  NO_PAYERS: "참석자가 없어 분담금을 계산할 수 없습니다",
+  INVALID_AMOUNT: "분담금이 올바르지 않습니다. 비용 항목을 확인해 주세요",
+  SETTLEMENT_UNAVAILABLE: "정산을 찾을 수 없습니다",
+};
+
+/**
  * 분담금 계산(T-502) · 스냅샷(T-503) · 입금 추적(T-504) · 게스트 공개(T-505).
  *
  * 금액 계산은 이 컴포넌트가 하지 않는다. `lib/moim/settlement.ts`의 순수 함수가 유일한
@@ -111,8 +126,20 @@ export function SettlementPanel({
     const parsed = rebuildResultSchema.safeParse(data);
 
     if (error || !parsed.success) {
-      // DB 오류 코드를 그대로 노출하지 않는다(T-602)
-      toast.error("분담금을 계산하지 못했습니다");
+      // DB 오류 코드를 그대로 노출하지 않는다(T-602). 아는 사유만 문구로 바꾼다
+      const raised = error?.message?.trim();
+      toast.error(
+        (raised && REBUILD_ERROR_MESSAGE[raised]) ??
+          "분담금을 계산하지 못했습니다",
+      );
+
+      // 명단이 바뀌어 막혔다면 화면의 참석자가 이미 낡았다. 최신 명단을 받아 와야
+      // 다시 눌러도 같은 이유로 막히지 않는다.
+      if (raised === "PAYERS_CHANGED") {
+        setIsRebuildOpen(false);
+        router.refresh();
+      }
+
       return;
     }
 

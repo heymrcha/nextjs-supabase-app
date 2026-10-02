@@ -410,6 +410,7 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/guest_get_event" \
   - 선행: T-501
 - [x] **T-503 스냅샷 생성 · 재계산** — `settlement_shares`에 계산 시점 참석자와 이름 · 금액을 복사한다. 이후 RSVP 변경이 이미 산출된 금액을 흔들지 않는다
   - [분담금 재계산]은 `Dialog` 확인 후 스냅샷을 다시 만들고, `is_paid = true`인 행의 입금 상태를 `rsvp_id` 기준으로 승계한다(`rsvp_id`가 `null`이 된 행은 이름으로 대조하고, 대조 실패 시 사용자에게 알린다)
+  - **D3의 "경합 시 오류로 되돌린다"가 처음 구현에는 빠져 있었다**(2026-10-02 코드 리뷰에서 발견). 함수가 `p_payers`를 그대로 믿고 쓰기만 해, 다이얼로그를 열어 둔 사이 명단이 바뀌면 낡은 기준의 스냅샷이 오류 없이 저장됐다. 마이그레이션 `moim_rebuild_settlement_shares_guard`에서 메웠다 — `settlements` 행을 `for update`로 잠가 동시 재계산을 직렬화하고, 참석자를 `for update`로 다시 읽어 **인원 수가 아니라 집합**을 `p_payers`와 비교한다(한 명이 빠지고 한 명이 들어오면 수는 같다). 불일치는 `PAYERS_CHANGED`, 금액 0 이하는 `INVALID_AMOUNT`, 참석자 0명은 `NO_PAYERS`로 막고 전부 롤백한다. 화면은 `PAYERS_CHANGED`일 때 사유를 안내하고 `router.refresh()`로 최신 명단을 받아 온다
   - 선행: T-502
 - [x] **T-504 입금 토글 · 미수금 합계** — 참석자별 `is_paid` 토글(`paid_at` 기록), 미수금 = `per_person × 미입금 인원`. `/events` 대시보드 배지와 값을 일치시킨다
   - 선행: T-503
