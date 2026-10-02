@@ -9,6 +9,7 @@
  * | expected_headcount | null 또는 > 0                            |
  * | display_name       | char_length 1~20                         |
  * | note               | null 또는 char_length <= 200             |
+ * | body (공지)        | char_length 1~2000                       |
  *
  * share_token은 어떤 스키마에도 넣지 않는다. 클라이언트가 정할 수 있는 값이 아니고
  * before insert 트리거가 덮어쓴다(D2).
@@ -151,3 +152,19 @@ export const guestWithdrawSchema = z.object({
   token: z.string().min(1, "잘못된 요청입니다"),
   eventId: z.uuid().nullish(),
 });
+
+/**
+ * 공지 본문(T-401). DB 제약은 `event_notices_body_len`(1~2000자) 하나뿐이다 —
+ * `is_pinned`은 폼이 다루지 않는다(토글 버튼이 별도로 보내고, 기존 고정 해제는
+ * `event_notices_unpin_others` 트리거가 한다. T-402).
+ */
+export const noticeSchema = z.object({
+  body: z
+    .string()
+    .trim()
+    .min(1, "공지 내용을 입력해 주세요")
+    .max(2000, "공지는 2000자 이내로 입력해 주세요"),
+});
+
+export type NoticeFormValues = z.input<typeof noticeSchema>;
+export type NoticeInput = z.output<typeof noticeSchema>;

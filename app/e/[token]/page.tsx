@@ -145,36 +145,59 @@ function EventHeader({ event }: { event: GuestEventPayload["event"] }) {
 /**
  * 공지는 DB가 `is_pinned desc, created_at desc`로 정렬해 내려준다(T-105).
  * 여기서 다시 정렬하지 않는다 — 두 곳에서 정렬하면 규칙이 갈린다.
- * 고정 공지를 상단 영역으로 분리하는 작업은 T-403이다.
+ *
+ * 고정은 이벤트당 최대 1개다 — `event_notices_unpin_others` 트리거와 부분 유니크
+ * 인덱스가 DB에서 보장하므로(T-402) `find`로 하나만 뽑아도 빠지는 공지가 없다.
+ * 상단 고정 영역에 그 1개를 두고 나머지를 아래 목록으로 돌린다(T-403).
  */
 function NoticeSection({ notices }: { notices: GuestNotice[] }) {
   if (notices.length === 0) return null;
 
+  const pinned = notices.find((notice) => notice.is_pinned) ?? null;
+  const rest = notices.filter((notice) => notice.id !== pinned?.id);
+
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-sm font-medium text-muted-foreground">공지</h2>
-      {notices.map((notice) => (
-        <article
-          key={notice.id}
-          className="flex flex-col gap-2 rounded-lg border p-4"
-        >
-          <div className="flex items-center gap-2">
-            {notice.is_pinned && (
-              <Badge variant="secondary" className="gap-1">
-                <PinIcon size={12} aria-hidden />
-                고정
-              </Badge>
-            )}
-            <span className="text-sm text-muted-foreground">
-              {formatDateTime(notice.created_at)}
-            </span>
-          </div>
-          <p className="whitespace-pre-wrap break-words text-sm">
-            {notice.body}
-          </p>
-        </article>
+      {pinned && <NoticeCard notice={pinned} isPinned />}
+      {rest.map((notice) => (
+        <NoticeCard key={notice.id} notice={notice} isPinned={false} />
       ))}
     </section>
+  );
+}
+
+/**
+ * 고정 공지는 테두리와 배경으로만 구분한다. 글자 크기를 키우지 않는 이유는
+ * 본문이 2000자까지 들어올 수 있어서다 — 긴 공지가 화면을 전부 먹는다.
+ */
+function NoticeCard({
+  notice,
+  isPinned,
+}: {
+  notice: GuestNotice;
+  isPinned: boolean;
+}) {
+  return (
+    <article
+      className={cn(
+        "flex flex-col gap-2 rounded-lg border p-4",
+        isPinned && "border-foreground bg-muted/30",
+      )}
+    >
+      <div className="flex items-center gap-2">
+        {isPinned && (
+          <Badge variant="secondary" className="gap-1">
+            <PinIcon size={12} aria-hidden />
+            고정
+          </Badge>
+        )}
+        <span className="text-sm text-muted-foreground">
+          {formatDateTime(notice.created_at)}
+        </span>
+      </div>
+      <p className="whitespace-pre-wrap break-words text-sm">{notice.body}</p>
+    </article>
   );
 }
 
