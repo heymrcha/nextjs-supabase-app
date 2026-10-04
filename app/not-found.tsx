@@ -12,7 +12,12 @@ export default function NotFound() {
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6">
       <div className="flex max-w-sm flex-col items-center gap-4 text-center">
-        <h1 className="text-2xl font-semibold">페이지를 찾을 수 없습니다</h1>
+        <span aria-hidden className="text-6xl">
+          🧭
+        </span>
+        <h1 className="font-display text-2xl font-normal">
+          페이지를 찾을 수 없습니다
+        </h1>
         <p className="text-sm text-muted-foreground">
           주소가 바뀌었거나 더 이상 볼 수 없는 페이지입니다. 공유 링크로 들어온
           경우에는 주최자에게 새 링크를 요청해 주세요.

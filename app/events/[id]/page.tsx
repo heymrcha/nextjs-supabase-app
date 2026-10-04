@@ -5,7 +5,12 @@ import { CalendarIcon, MapPinIcon, PinIcon, UsersIcon } from "lucide-react";
 import { ShareLinkCard } from "@/components/events/share-link-card";
 import { Badge } from "@/components/ui/badge";
 import { countRsvps, type RsvpCounts } from "@/lib/moim/roster";
-import { formatDateTime } from "@/lib/moim/format";
+import {
+  formatDateTime,
+  RSVP_STATUS_EMOJI,
+  RSVP_STATUS_TONE,
+} from "@/lib/moim/format";
+import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 
 async function EventOverview({ params }: { params: Promise<{ id: string }> }) {
@@ -41,7 +46,7 @@ async function EventOverview({ params }: { params: Promise<{ id: string }> }) {
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-3">
-        <h1 className="text-2xl font-bold">{event.title}</h1>
+        <h1 className="font-display text-2xl font-normal">{event.title}</h1>
 
         <dl className="flex flex-col gap-1 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
@@ -116,9 +121,9 @@ async function EventOverview({ params }: { params: Promise<{ id: string }> }) {
 
 function CounterRow({ counts }: { counts: RsvpCounts }) {
   const items = [
-    { label: "참석", value: counts.attending },
-    { label: "불참", value: counts.declined },
-    { label: "미정", value: counts.maybe },
+    { label: "참석", value: counts.attending, status: "attending" as const },
+    { label: "불참", value: counts.declined, status: "declined" as const },
+    { label: "미정", value: counts.maybe, status: "maybe" as const },
   ];
 
   return (
@@ -126,9 +131,15 @@ function CounterRow({ counts }: { counts: RsvpCounts }) {
       {items.map((item) => (
         <div
           key={item.label}
-          className="flex flex-col items-center gap-1 rounded-lg border p-4"
+          className={cn(
+            "flex flex-col items-center gap-1 rounded-2xl p-4",
+            RSVP_STATUS_TONE[item.status],
+          )}
         >
-          <dt className="text-sm text-muted-foreground">{item.label}</dt>
+          <dt className="text-sm">
+            <span aria-hidden>{RSVP_STATUS_EMOJI[item.status]} </span>
+            {item.label}
+          </dt>
           <dd className="text-2xl font-bold">{item.value}</dd>
         </div>
       ))}

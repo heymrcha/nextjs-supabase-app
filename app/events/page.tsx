@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { CalendarPlusIcon } from "lucide-react";
 
 import { EventListItem } from "@/components/events/event-list-item";
 import { Button } from "@/components/ui/button";
@@ -96,12 +95,10 @@ function EventSection({
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-lg border border-dashed p-10 text-center">
-      <CalendarPlusIcon
-        size={32}
-        className="text-muted-foreground"
-        aria-hidden
-      />
+    <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-primary/30 bg-secondary/40 p-10 text-center">
+      <span aria-hidden className="text-5xl">
+        🗓️
+      </span>
       <div className="flex flex-col gap-1">
         <p className="font-medium">아직 만든 모임이 없습니다</p>
         <p className="text-sm text-muted-foreground">
@@ -122,7 +119,7 @@ function EventListSkeleton() {
       {[0, 1, 2].map((key) => (
         <div
           key={key}
-          className="h-28 animate-pulse rounded-lg border bg-muted/40"
+          className="h-28 animate-pulse rounded-2xl border bg-muted/40"
         />
       ))}
     </div>
@@ -133,7 +130,7 @@ export default function EventsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">내 모임</h1>
+        <h1 className="font-display text-2xl font-normal">내 모임</h1>
         <Button asChild>
           <Link href="/events/new">모임 만들기</Link>
         </Button>

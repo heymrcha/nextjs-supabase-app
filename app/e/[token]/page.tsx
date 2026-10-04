@@ -31,7 +31,9 @@ import { cn } from "@/lib/utils";
 import {
   formatDateTime,
   formatKrw,
+  RSVP_STATUS_EMOJI,
   RSVP_STATUS_LABEL,
+  RSVP_STATUS_TONE,
 } from "@/lib/moim/format";
 import type {
   GuestEventPayload,
@@ -96,8 +98,10 @@ function GuestEventView({
 
 function EventHeader({ event }: { event: GuestEventPayload["event"] }) {
   return (
-    <section className="flex flex-col gap-3">
-      <h1 className="text-2xl font-bold">{event.title}</h1>
+    <section className="flex flex-col gap-3 rounded-3xl bg-gradient-to-br from-primary/15 via-accent to-secondary p-5">
+      <h1 className="break-words font-display text-3xl font-normal">
+        {event.title}
+      </h1>
 
       <dl className="flex flex-col gap-1 text-sm text-muted-foreground">
         <div className="flex items-start gap-2">
@@ -223,7 +227,15 @@ function MyRsvpCard({
           {/* Badge가 <div>를 렌더하므로 <p>로 감쌀 수 없다 — 중첩이 무효라 hydration 오류가 난다 */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="break-all font-medium">{mine.display_name}</span>
-            <Badge variant="secondary">{RSVP_STATUS_LABEL[mine.status]}</Badge>
+            <span
+              className={cn(
+                "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                RSVP_STATUS_TONE[mine.status],
+              )}
+            >
+              <span aria-hidden>{RSVP_STATUS_EMOJI[mine.status]}&nbsp;</span>
+              {RSVP_STATUS_LABEL[mine.status]}
+            </span>
           </div>
           {mine.note && (
             <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
@@ -280,6 +292,7 @@ function RosterTabs({
         <TabsList className="min-h-[52px] w-full overflow-x-auto">
           {STATUS_ORDER.map((status) => (
             <TabsTrigger key={status} value={status}>
+              <span aria-hidden>{RSVP_STATUS_EMOJI[status]}&nbsp;</span>
               {RSVP_STATUS_LABEL[status]} {counts[status]}
             </TabsTrigger>
           ))}
@@ -317,7 +330,7 @@ function RosterList({
   }
 
   return (
-    <ul className="flex flex-col divide-y rounded-lg border">
+    <ul className="flex flex-col divide-y overflow-hidden rounded-2xl border">
       {entries.map((entry) => (
         <li
           key={entry.id}
@@ -327,6 +340,15 @@ function RosterList({
             entry.isOverCapacity && "text-muted-foreground",
           )}
         >
+          <span
+            className={cn(
+              "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium",
+              RSVP_STATUS_TONE[status],
+            )}
+          >
+            <span aria-hidden>{RSVP_STATUS_EMOJI[status]}&nbsp;</span>
+            {RSVP_STATUS_LABEL[status]}
+          </span>
           {/* 이름은 20자까지 자유 입력이다. 좁은 폭에서 넘치지 않게 break-all */}
           <span className="break-all">{entry.label}</span>
           {entry.id === myRsvpId && (

@@ -2,7 +2,13 @@ import Link from "next/link";
 import { CalendarIcon, MapPinIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { formatDateTime, formatKrw } from "@/lib/moim/format";
+import {
+  formatDateTime,
+  formatKrw,
+  RSVP_STATUS_EMOJI,
+  RSVP_STATUS_TONE,
+} from "@/lib/moim/format";
+import { cn } from "@/lib/utils";
 import type { DashboardEvent } from "@/lib/moim/dashboard";
 
 /**
@@ -14,10 +20,10 @@ export function EventListItem({ event }: { event: DashboardEvent }) {
     <li>
       <Link
         href={`/events/${event.id}`}
-        className="flex flex-col gap-3 rounded-lg border p-4 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <h3 className="font-medium">{event.title}</h3>
+          <h3 className="font-display text-lg font-normal">{event.title}</h3>
           {event.hasSettlement && (
             <Badge variant={event.unpaidTotal > 0 ? "destructive" : "outline"}>
               {event.unpaidTotal > 0
@@ -42,18 +48,34 @@ export function EventListItem({ event }: { event: DashboardEvent }) {
           )}
         </dl>
 
-        <p className="text-sm">
-          <span className="font-medium">참석 {event.counts.attending}명</span>
-          {event.capacity !== null && (
-            <span className="text-muted-foreground">
-              {" "}
-              / 정원 {event.capacity}명
-            </span>
-          )}
-          <span className="text-muted-foreground">
-            {" · "}불참 {event.counts.declined}명 · 미정 {event.counts.maybe}명
-          </span>
-        </p>
+        {/* 상태별 pill — 숫자·단어는 기존 문구 그대로, 색과 이모지만 얹는다 */}
+        <ul className="flex flex-wrap gap-2 text-xs">
+          <li
+            className={cn(
+              "rounded-full px-2.5 py-1 font-medium",
+              RSVP_STATUS_TONE.attending,
+            )}
+          >
+            <span aria-hidden>{RSVP_STATUS_EMOJI.attending} </span>
+            참석 {event.counts.attending}명
+            {event.capacity !== null && <> / 정원 {event.capacity}명</>}
+          </li>
+          <li
+            className={cn("rounded-full px-2.5 py-1", RSVP_STATUS_TONE.maybe)}
+          >
+            <span aria-hidden>{RSVP_STATUS_EMOJI.maybe} </span>
+            미정 {event.counts.maybe}명
+          </li>
+          <li
+            className={cn(
+              "rounded-full px-2.5 py-1",
+              RSVP_STATUS_TONE.declined,
+            )}
+          >
+            <span aria-hidden>{RSVP_STATUS_EMOJI.declined} </span>
+            불참 {event.counts.declined}명
+          </li>
+        </ul>
       </Link>
     </li>
   );

@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { getAppOrigin } from "@/lib/moim/share-link";
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
+import { Geist, Jua } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import "./globals.css";
 
@@ -25,14 +25,22 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
+// 한글 글리프는 unicode-range 조각으로 나뉘어 있어 preload 대상을 특정할 수 없다
+const jua = Jua({
+  weight: "400",
+  variable: "--font-display",
+  display: "swap",
+  preload: false,
+});
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.className} antialiased`}>
+    <html lang="ko" suppressHydrationWarning>
+      <body className={`${geistSans.className} ${jua.variable} antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
