@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { KakaoSignInButton } from "@/components/kakao-sign-in-button";
 import {
   Card,
   CardContent,
@@ -111,7 +112,10 @@ export function LoginForm({
             </span>
             <div className="absolute inset-x-0 top-1/2 border-t" />
           </div>
-          <GoogleSignInButton />
+          <div className="flex flex-col gap-2">
+            <KakaoSignInButton />
+            <GoogleSignInButton />
+          </div>
         </CardContent>
       </Card>
     </div>
