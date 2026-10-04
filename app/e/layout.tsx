@@ -1,3 +1,8 @@
+import type { Metadata } from "next";
+
+// 공유 링크로만 들어오는 화면이라 검색 결과에 노출되면 안 된다
+export const metadata: Metadata = { robots: { index: false, follow: false } };
+
 /**
  * 게스트 화면의 공통 컨테이너. 카카오톡 인앱 브라우저에서 열리므로 모바일 폭이 기본이고
  * `sm:` 이상에서만 여백을 넓힌다 — 데스크톱 폭을 먼저 잡고 좁히지 않는다.

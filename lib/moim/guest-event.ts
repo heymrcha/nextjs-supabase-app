@@ -29,16 +29,7 @@ import type { GuestEventPayload, GuestRpcArgs } from "@/types/moim";
 export async function loadGuestEvent(
   token: string,
 ): Promise<GuestEventPayload | null> {
-  const supabase = createGuestClient();
-
-  const firstArgs: GuestRpcArgs["guest_get_event"] = {
-    p_token: token,
-    p_guest_key: null,
-  };
-  const first = await supabase.rpc("guest_get_event", firstArgs);
-  if (first.error) return null;
-
-  const payload = parseGuestEventPayload(first.data);
+  const payload = await loadGuestEventPreview(token);
   if (!payload) return null;
 
   const guestKey = readGuestKey(await cookies(), payload.event.id);
@@ -48,11 +39,29 @@ export async function loadGuestEvent(
     p_token: token,
     p_guest_key: guestKey,
   };
-  const second = await supabase.rpc("guest_get_event", secondArgs);
+  const second = await createGuestClient().rpc("guest_get_event", secondArgs);
 
   // 2차가 실패해도 1차 결과로 그린다. 본인 표시만 빠지고 읽기는 된다
   if (second.error) return payload;
   return parseGuestEventPayload(second.data) ?? payload;
+}
+
+/**
+ * 쿠키를 읽지 않는 1차 호출만. 공유 미리보기(`generateMetadata`)가 쓴다 — 크롤러에는
+ * 게스트 쿠키가 없고, 미리보기에는 본인 응답이 필요 없다. 반환값에 명단이 들어 있지만
+ * 메타데이터로 꺼내는 쪽이 제목·일시·장소만 골라 쓴다.
+ */
+export async function loadGuestEventPreview(
+  token: string,
+): Promise<GuestEventPayload | null> {
+  const firstArgs: GuestRpcArgs["guest_get_event"] = {
+    p_token: token,
+    p_guest_key: null,
+  };
+  const first = await createGuestClient().rpc("guest_get_event", firstArgs);
+  if (first.error) return null;
+
+  return parseGuestEventPayload(first.data);
 }
 
 /** 명단에서 본인 행을 찾는다. `is_mine`은 2차 호출에서만 true가 된다 */

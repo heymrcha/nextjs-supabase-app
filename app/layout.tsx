@@ -8,8 +8,20 @@ import "./globals.css";
 export const metadata: Metadata = {
   // origin 계산은 공유 링크와 한 규칙을 쓴다(lib/moim/share-link.ts)
   metadataBase: new URL(getAppOrigin()),
-  title: "모임",
+  title: {
+    default: "모임 — 공지·참석·정산을 링크 하나로",
+    template: "%s · 모임",
+  },
   description: "모임 공지와 참석 집계, 비용 정산을 링크 하나로 끝냅니다",
+  // 이미지는 app/opengraph-image.tsx(파일 규약)가 채운다. 여기에 images를 적으면 둘이 엇갈린다
+  openGraph: {
+    siteName: "모임",
+    locale: "ko_KR",
+    type: "website",
+    title: "모임 — 공지·참석·정산을 링크 하나로",
+    description: "모임 공지와 참석 집계, 비용 정산을 링크 하나로 끝냅니다",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export const viewport: Viewport = {
