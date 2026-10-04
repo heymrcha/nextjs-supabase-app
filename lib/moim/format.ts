@@ -56,6 +56,25 @@ export const RSVP_STATUS_LABEL: Record<RsvpStatus, string> = {
   maybe: "미정",
 };
 
+/** 상태별 이모지. 라벨 옆에 장식으로만 쓰므로 소비 쪽에서 aria-hidden 처리한다 */
+export const RSVP_STATUS_EMOJI: Record<RsvpStatus, string> = {
+  attending: "🙌",
+  maybe: "🤔",
+  declined: "🙅",
+};
+
+/**
+ * 상태별 pill 색. 게스트 명단과 주최자 화면이 같은 상태를 같은 색으로 보여야
+ * 화면을 오갈 때 "초록=참석"이 학습되므로 한 곳에 모은다. 라이트·다크 모두
+ * 배경 대비 텍스트가 4.5:1 이상이 되도록 100/800, 900/40%+200 조합을 쓴다.
+ */
+export const RSVP_STATUS_TONE: Record<RsvpStatus, string> = {
+  attending:
+    "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200",
+  maybe: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
+  declined: "bg-muted text-muted-foreground",
+};
+
 /**
  * 이력 타임라인용 짧은 일시(`10. 2. 09:12`). 한 행에 여러 건이 쌓이는 자리라
  * 긴 형식(`2026년 10월 2일 (금) 오전 9:12`)을 쓰면 변경 내용이 밀려 읽히지 않는다.

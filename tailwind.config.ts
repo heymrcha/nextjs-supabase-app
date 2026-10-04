@@ -8,9 +8,14 @@ export default {
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
+    // lib/moim/format.ts의 RSVP_STATUS_TONE처럼 클래스 문자열을 상수로 두는 곳이 있어 스캔 대상에 넣는다
+    "./lib/**/*.{ts,tsx}",
   ],
   theme: {
     extend: {
+      fontFamily: {
+        display: ["var(--font-display)", "sans-serif"],
+      },
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",

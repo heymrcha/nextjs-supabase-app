@@ -21,7 +21,7 @@ export function EventTabs() {
   return (
     // 탭 5개는 좁은 폭(375px)에서 한 줄에 들어가지 않는다. 줄바꿈 대신 가로 스크롤로
     // 흘려 보내 탭 줄의 높이가 변하지 않게 한다
-    <nav className="-mx-4 flex gap-1 overflow-x-auto border-b px-4 sm:mx-0 sm:px-0">
+    <nav className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 py-1 sm:mx-0 sm:px-0">
       {TABS.map((tab) => {
         // 개요는 하위 탭 경로에서도 startsWith가 참이 되므로 정확히 일치로 판정한다
         const isActive = current === tab.segment;
@@ -33,10 +33,10 @@ export function EventTabs() {
             aria-current={isActive ? "page" : undefined}
             // min-h-11: 손가락으로 누를 수 있는 최소 높이(약 44px)를 확보한다
             className={cn(
-              "flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-2 px-4 text-sm transition-colors",
+              "flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-full px-4 text-sm transition-colors",
               isActive
-                ? "border-foreground font-medium text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
+                ? "bg-primary font-medium text-primary-foreground"
+                : "text-muted-foreground hover:bg-secondary",
             )}
           >
             {tab.label}

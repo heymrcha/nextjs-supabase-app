@@ -26,9 +26,9 @@ export default function EventsLayout({
           {/* 터치 영역 44px 확보 — 글자만으로는 24×20이라 모바일에서 누르기 어렵다(T-603) */}
           <Link
             href="/events"
-            className="-mx-2 inline-flex min-h-11 items-center px-2 font-semibold"
+            className="-mx-2 inline-flex min-h-11 items-center px-2 font-display text-lg"
           >
-            모임
+            <span aria-hidden>🎉&nbsp;</span>모임
           </Link>
           {/* AuthButton은 세션을 읽으므로 cacheComponents 경계가 필요하다 */}
           {hasEnvVars ? (

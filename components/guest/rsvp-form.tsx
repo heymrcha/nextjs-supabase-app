@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { RSVP_STATUS_LABEL } from "@/lib/moim/format";
+import { RSVP_STATUS_EMOJI, RSVP_STATUS_LABEL } from "@/lib/moim/format";
 import {
   guestRsvpSchema,
   type GuestRsvpFormValues,
@@ -179,7 +179,7 @@ export function GuestRsvpForm({
             {STATUS_OPTIONS.map((status) => (
               <label
                 key={status}
-                className="flex min-h-11 cursor-pointer items-center justify-center rounded-md border text-sm transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/10 has-[:checked]:font-medium has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
+                className="flex min-h-14 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 text-sm transition-all has-[:checked]:border-primary has-[:checked]:bg-primary/10 has-[:checked]:font-medium has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
               >
                 <input
                   type="radio"
@@ -187,6 +187,9 @@ export function GuestRsvpForm({
                   className="sr-only"
                   {...register("status")}
                 />
+                <span aria-hidden className="text-2xl">
+                  {RSVP_STATUS_EMOJI[status]}
+                </span>
                 {RSVP_STATUS_LABEL[status]}
               </label>
             ))}
