@@ -486,6 +486,31 @@ npm run build
 
 ---
 
+## Phase 7 — 릴리스 후 UI 리프레시
+
+목표: 운영 배포(Vercel, 2026-10-04) 후 "정적이고 딱딱하다"는 피드백을 받아, **백엔드·데이터·로직을 건드리지 않고 화면만** 캐주얼하게 바꾼다.
+
+- [x] **T-701 캐주얼 UI 리프레시** — PR #1(`2b6cf04`), 2026-10-04 머지·운영 반영
+  - 전역 토큰(`app/globals.css`): 크림 배경 + 코랄 primary(라이트 `12 76% 46%`, 다크 `16 90% 64%`), 연살구 secondary·accent, `--radius: 0.875rem`
+  - 제목 글꼴 Jua(`font-display`, `preload: false`). 본문은 Geist 그대로. `<html lang="ko">`로 수정
+  - 프리미티브: Button·Badge·Tabs를 `rounded-full`, Card를 `rounded-2xl`
+  - 화면: 랜딩 히어로 그라데이션·기능 카드 이모지, nav 로고 `🎉 모임`, 대시보드 카드 hover·상태 pill, 이벤트 탭 pill, 게스트 헤더 그라데이션 카드, 응답 폼 이모지 선택 칩, 만료·404 이모지
+  - 상태 색·이모지는 `lib/moim/format.ts`의 `RSVP_STATUS_TONE`·`RSVP_STATUS_EMOJI` 한 곳에 둔다(게스트·주최자 화면 표시 일치, T-305와 같은 이유)
+  - 문구('~합니다'체)는 바꾸지 않았다
+
+**완료 기준**
+
+- `lib/supabase/`, `supabase/`, `app/api/`, `proxy.ts`, `types/database.ts` 변경 0건
+- `npm run check-all` 통과, `npm run build` 성공, GitHub CI·Vercel 미리보기 통과
+- 상태 pill·코랄 버튼 텍스트 대비 4.5:1 이상(실측: 라이트 최소 4.80, 다크 최소 6.12)
+
+### Phase 7 실행 결과 (2026-10-04)
+
+- **`tailwind.config.ts`의 `content`에 `lib/`이 빠져 있었다.** `lib/moim/format.ts`에 둔 클래스 문자열(`bg-emerald-100` 등)이 CSS로 생성되지 않아 참석·미정 pill 배경이 비어 보였다. `"./lib/**/*.{ts,tsx}"`를 추가했다 — 앞으로 `lib/`에 Tailwind 클래스 상수를 둘 때도 이 경로가 있어야 한다.
+- 375px 실기기 폭 확인과 응답 폼 실제 제출은 운영 배포 후 사용자 확인으로 남겼다.
+
+---
+
 ## 단계 요약
 
 | 단계     | 주제          | 작업 수 | 관문                                            |
@@ -497,7 +522,8 @@ npm run build
 | Phase 4  | 공지          | 3       | 고정 공지 1개 제한 + 게스트 상단 반영           |
 | Phase 5  | 정산          | 6       | 스냅샷 · 재계산 · 미수금 0원                    |
 | Phase 6  | 마감          | 5       | 엣지 케이스 14행 + `check-all` + `build`        |
-| **합계** |               | **41**  |                                                 |
+| Phase 7  | UI 리프레시   | 1       | 백엔드 변경 0건 + 대비 4.5:1 이상               |
+| **합계** |               | **42**  |                                                 |
 
 ---
 
