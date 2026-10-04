@@ -11,6 +11,7 @@
  * 여백은 `app/e/layout.tsx`가 책임진다 — 여기서 `px-*`를 다시 걸지 않는다.
  */
 
+import type { Metadata, ResolvingMetadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -20,13 +21,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { isRsvpClosed } from "@/lib/moim/event-status";
-import { findMyRsvp, loadGuestEvent } from "@/lib/moim/guest-event";
+import {
+  findMyRsvp,
+  loadGuestEvent,
+  loadGuestEventPreview,
+} from "@/lib/moim/guest-event";
 import {
   buildRoster,
   countRsvps,
   groupRosterByStatus,
   type RosterEntry,
 } from "@/lib/moim/roster";
+import {
+  buildShareMetadata,
+  UNAVAILABLE_SHARE_TEXT,
+} from "@/lib/moim/share-meta";
 import { cn } from "@/lib/utils";
 import {
   formatDateTime,
@@ -427,6 +436,32 @@ function GuestEventSkeleton() {
       <div className="h-40 animate-pulse rounded-lg bg-muted/40" aria-hidden />
     </div>
   );
+}
+
+/**
+ * 공유 미리보기 문구. 무효·만료·삭제 토큰은 셋 다 같은 일반 문구로 보낸다 — 미리보기가
+ * 달라지면 토큰의 존재 여부가 새어 나간다(만료 화면을 통일한 것과 같은 이유).
+ * 명단·메모·정산은 넣지 않는다. 링크가 단톡방 밖으로 퍼져도 미리보기에서 보이는 것은
+ * 제목·일시·장소까지다.
+ */
+export async function generateMetadata(
+  { params }: { params: Promise<{ token: string }> },
+  parent: ResolvingMetadata,
+): Promise<Metadata> {
+  const { token } = await params;
+  const payload = await loadGuestEventPreview(token);
+  if (!payload) return buildShareMetadata(parent, UNAVAILABLE_SHARE_TEXT);
+
+  const { event } = payload;
+  const description = [
+    formatDateTime(event.starts_at),
+    event.location,
+    "참석 여부를 알려주세요",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  return buildShareMetadata(parent, { title: event.title, description });
 }
 
 /**

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -5,6 +6,9 @@ import { AuthButton } from "@/components/auth-button";
 import { EnvVarWarning } from "@/components/env-var-warning";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { hasEnvVars } from "@/lib/utils";
+
+// 주최자 전용 화면은 로그인 뒤에만 열리므로 색인할 이유가 없다
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 /**
  * 주최자 화면의 공통 컨테이너. 주최자도 카카오톡에서 링크를 복사해 붙이는 흐름이라

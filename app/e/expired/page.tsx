@@ -1,3 +1,19 @@
+import type { Metadata, ResolvingMetadata } from "next";
+
+import {
+  buildShareMetadata,
+  UNAVAILABLE_SHARE_TEXT,
+} from "@/lib/moim/share-meta";
+
+// 무효 토큰의 미리보기와 같은 문구 — 만료 화면으로 리다이렉트된 뒤에 수집돼도
+// 모임 존재 여부를 드러내지 않게 한다
+export function generateMetadata(
+  _props: unknown,
+  parent: ResolvingMetadata,
+): Promise<Metadata> {
+  return buildShareMetadata(parent, UNAVAILABLE_SHARE_TEXT);
+}
+
 export default function GuestExpiredPage() {
   return (
     <div className="flex flex-col gap-2">

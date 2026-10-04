@@ -486,7 +486,7 @@ npm run build
 
 ---
 
-## Phase 7 — 릴리스 후 UI 리프레시
+## Phase 7 — 릴리스 후 UI 개선
 
 목표: 운영 배포(Vercel, 2026-10-04) 후 "정적이고 딱딱하다"는 피드백을 받아, **백엔드·데이터·로직을 건드리지 않고 화면만** 캐주얼하게 바꾼다.
 
@@ -509,6 +509,15 @@ npm run build
 - **`tailwind.config.ts`의 `content`에 `lib/`이 빠져 있었다.** `lib/moim/format.ts`에 둔 클래스 문자열(`bg-emerald-100` 등)이 CSS로 생성되지 않아 참석·미정 pill 배경이 비어 보였다. `"./lib/**/*.{ts,tsx}"`를 추가했다 — 앞으로 `lib/`에 Tailwind 클래스 상수를 둘 때도 이 경로가 있어야 한다.
 - 375px 실기기 폭 확인과 응답 폼 실제 제출은 운영 배포 후 사용자 확인으로 남겼다.
 
+- [x] **T-702 공유 미리보기(OG 태그)** — 스타터 기본 이미지(`app/opengraph-image.png`, `twitter-image.png`)를 지우고 상황별 미리보기로 교체
+  - 이미지 2장을 `opengraph-image.tsx` + `ImageResponse`로 빌드 때 정적 생성: 메인(`app/`)과 공통 초대장(`app/e/` — `/e/*` 전체가 상속). 한글은 `lib/moim/og-font.ts`가 Google Fonts에서 쓰는 글자만 Jua 서브셋으로 받는다(`"use cache"`로 정적 유지)
+  - `/e/[token]`의 `generateMetadata`: 제목 = 모임 제목, 설명 = `일시 · 장소 · 참석 여부를 알려주세요`. 쿠키 없는 1차 호출(`loadGuestEventPreview`)만 쓰고 명단·메모·정산은 넣지 않는다. 무효·만료·삭제 토큰과 `/e/expired`는 같은 일반 문구("모임 초대") — 존재 여부 비노출(T-303)
+  - `openGraph`는 키 단위로 통째로 덮어써지므로 `lib/moim/share-meta.ts`의 `buildShareMetadata`가 상위의 이미지·siteName·locale을 다시 싣는다
+  - **카카오톡 스크래퍼가 Next 기본 HTML-limited bot 목록에 없다.** 그대로 두면 메타데이터가 `<body>` 끝으로 스트리밍되어 카톡 미리보기에 모임 제목이 안 나온다 → `next.config.ts`의 `htmlLimitedBots`에 기본 목록 + `kakaotalk-scrap`
+  - `opengraph-image`는 확장자가 없어 proxy matcher의 이미지 예외에 걸리지 않고 로그인으로 리다이렉트됐다 → `proxy.ts` matcher에서 제외
+  - `/e/*`, `/events/*`는 `noindex, nofollow`
+  - 한계: 카카오는 미리보기를 캐시한다. 모임 제목을 바꿔도 이미 공유된 링크의 미리보기는 남는다(카카오 개발자 사이트의 공유 디버거로 초기화)
+
 ---
 
 ## 단계 요약
@@ -522,8 +531,8 @@ npm run build
 | Phase 4  | 공지          | 3       | 고정 공지 1개 제한 + 게스트 상단 반영           |
 | Phase 5  | 정산          | 6       | 스냅샷 · 재계산 · 미수금 0원                    |
 | Phase 6  | 마감          | 5       | 엣지 케이스 14행 + `check-all` + `build`        |
-| Phase 7  | UI 리프레시   | 1       | 백엔드 변경 0건 + 대비 4.5:1 이상               |
-| **합계** |               | **42**  |                                                 |
+| Phase 7  | UI 개선       | 2       | 백엔드 변경 0건 + 카톡 미리보기에 모임 제목     |
+| **합계** |               | **43**  |                                                 |
 
 ---
 
