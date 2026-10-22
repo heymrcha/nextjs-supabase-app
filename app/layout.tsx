@@ -22,11 +22,19 @@ export const metadata: Metadata = {
     description: "모임 공지와 참석 집계, 비용 정산을 링크 하나로 끝냅니다",
   },
   twitter: { card: "summary_large_image" },
+  // iOS 홈 화면 앱의 이름과 전체 화면 동작. manifest.ts만으로는 iOS가 이름을 못 읽는다
+  appleWebApp: { capable: true, title: "모임", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // 다크모드는 next-themes(class 전략)라 미디어쿼리는 OS 설정만 따른다. 앱 안에서 수동으로
+  // 바꾼 테마와는 상태 표시줄 색이 어긋날 수 있지만 MVP에서는 감수한다
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fcfaf7" },
+    { media: "(prefers-color-scheme: dark)", color: "#171312" },
+  ],
   // maximumScale·userScalable을 지정하지 않는다 — 확대를 막으면 작은 글씨를 읽어야 하는
   // 사용자가 갇힌다. 게스트 화면은 카카오톡 인앱 브라우저에서 열리므로 특히 중요하다
 };
