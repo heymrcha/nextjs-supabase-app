@@ -56,7 +56,16 @@ pre-commit이 실패하면 커밋이 만들어지지 않습니다. `any` 사용,
 
 ### 인증 흐름
 
-이메일+비밀번호 방식입니다. 가입·비밀번호 재설정 메일의 링크는 `app/auth/confirm/route.ts`로 들어와 `verifyOtp({ token_hash, type })`를 수행한 뒤 `?next=` 파라미터로 이동합니다. 오류는 `/auth/error?error=<message>`로 보냅니다.
+이메일+비밀번호 방식입니다. 가입·비밀번호 재설정 메일의 링크는 `app/auth/confirm/route.ts`로 들어와 `verifyOtp({ token_hash, type })`를 수행한 뒤 `?next=` 파라미터로 이동합니다. 오류는 `/auth/error?error=<message>`로 보냅니다. 에러 화면은 이 문구를 그대로 보여 주지 않고 `lib/moim/auth-errors.ts`의 화이트리스트(`authErrorMessage`)로 거릅니다. 새 오류 문구를 `/auth/error`로 넘기면 이 목록에도 넣어야 합니다 — 없으면 "링크가 만료되었거나…"라는 이메일 링크용 문구로 떨어집니다(T-807).
+
+### PWA (설치형 웹앱)
+
+`app/manifest.ts`와 `public/icon-192.png`·`icon-512.png`만 있고 **서비스워커는 없습니다.** 인증이 필요한 페이지를 캐시하면 로그아웃 뒤나 다른 계정에서 이전 데이터가 보일 수 있어서 의도적으로 뺐습니다. 오프라인 폴백이 필요해지면 데이터 캐시 없이 폴백 페이지만 두세요.
+
+- **`proxy.ts` matcher에서 `manifest.webmanifest`를 제외해야 합니다.** 설치 가능 여부를 판정하는 브라우저는 로그인 없이 매니페스트를 가져가므로, 지우면 로그인으로 리다이렉트되어 설치 조건이 조용히 깨집니다. 서비스워커(`sw.js`)를 추가하면 같은 방식으로 제외하세요.
+- `manifest.ts`의 `theme_color`·`background_color`는 `app/globals.css` 토큰을 hex로 옮긴 값이라 CSS 변수를 읽지 못합니다. 테마 색을 바꾸면 `manifest.ts`와 `app/layout.tsx`의 `viewport.themeColor`도 함께 바꾸세요.
+- `start_url`은 `/`입니다. `/events`로 두면 비로그인 첫 실행이 로그인 화면이 됩니다(설치 판정에 미치는 영향은 검증하지 않았습니다).
+- 설치 배너(`components/install-prompt.tsx`)는 주최자 화면(`/events`)에만 둡니다. 게스트는 카카오톡 인앱 브라우저로 들어와 설치할 수 없습니다.
 
 ### UI
 
