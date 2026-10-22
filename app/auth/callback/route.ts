@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
   // 동의 화면에서 취소한 경우(code 없음)와 코드 교환 실패 모두 여기로 온다
   const message = encodeURIComponent(
-    "Google 로그인에 실패했습니다. 다시 시도해 주세요.",
+    "로그인에 실패했습니다. 다시 시도해 주세요.",
   );
   return NextResponse.redirect(`${origin}/auth/error?error=${message}`);
 }
