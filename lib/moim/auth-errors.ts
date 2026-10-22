@@ -40,6 +40,9 @@ const AUTH_ERROR_MESSAGE: [match: string, message: string][] = [
     "메일 전송 한도를 넘었습니다. 잠시 후 다시 시도해 주세요",
   ],
   ["over_email_send_rate_limit", "잠시 후 다시 시도해 주세요"],
+  // app/auth/callback이 OAuth 실패 때 /auth/error로 넘기는 한국어 문구. 목록에 없으면
+  // 에러 화면이 "링크가 만료되었거나…"라는 이메일 링크용 문구로 떨어져 원인을 오해하게 된다
+  ["로그인에 실패했습니다", "로그인에 실패했습니다. 다시 시도해 주세요."],
 ];
 
 /**
