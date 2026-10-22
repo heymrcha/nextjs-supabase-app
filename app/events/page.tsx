@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { EventListItem } from "@/components/events/event-list-item";
+import { InstallPrompt } from "@/components/install-prompt";
 import { Button } from "@/components/ui/button";
 import { groupByTime, toDashboardEvent } from "@/lib/moim/dashboard";
 import { createClient } from "@/lib/supabase/server";
@@ -135,6 +136,10 @@ export default function EventsPage() {
           <Link href="/events/new">모임 만들기</Link>
         </Button>
       </div>
+
+      {/* 서버 렌더에서는 항상 null이라 캐시 경계가 필요 없다. 설치 유도는 게스트가 아니라
+          주최자 화면에만 둔다 — 게스트는 카카오톡 인앱 브라우저로 들어와 설치할 수 없다 */}
+      <InstallPrompt />
 
       {/* cacheComponents: true라 데이터를 읽는 부분은 페이지에서 직접 await하지 않는다 */}
       <Suspense fallback={<EventListSkeleton />}>
